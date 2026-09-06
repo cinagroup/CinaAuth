@@ -5154,6 +5154,7 @@ checkIncludesAll(
 		"Object.fromEntries",
 		"JSON.stringify(values)",
 		"wrangler",
+		'"versions", "secret", "bulk"',
 		"secret",
 		"bulk",
 		"spawnSyncImpl",

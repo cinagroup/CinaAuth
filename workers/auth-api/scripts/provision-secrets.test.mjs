@@ -219,7 +219,8 @@ test("production dry-run requires an explicit target and never resolves or spawn
 	assert.match(messages.at(-1), /dry run complete/);
 });
 
-test("writes mutable required and configured optional values in one stdin bulk call", () => {
+/** @see https://developers.cloudflare.com/workers/configuration/secrets/ */
+test("stages mutable secrets in one versioned stdin bulk call without activating code after rollback", () => {
 	const env = {
 		...createCoreEnv(),
 		CLOUDFLARE_ENV: "",
@@ -244,7 +245,7 @@ test("writes mutable required and configured optional values in one stdin bulk c
 
 	assert.equal(calls.length, 1);
 	assert.equal(calls[0].command, process.execPath);
-	assert.deepEqual(calls[0].args, [wranglerCli, "secret", "bulk"]);
+	assert.deepEqual(calls[0].args, [wranglerCli, "versions", "secret", "bulk"]);
 	assert.deepEqual(calls[0].options.stdio, ["pipe", "inherit", "inherit"]);
 	assert.equal(Object.hasOwn(calls[0].options.env, "CLOUDFLARE_ENV"), false);
 	assert.deepEqual(JSON.parse(calls[0].options.input), {
