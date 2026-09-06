@@ -185,6 +185,52 @@ describe("authoritative Admin role permissions", () => {
 });
 
 describe("OIDC signing and social provider configuration", () => {
+	/** @see https://www.better-auth.com/docs/plugins/oauth-provider */
+	it("accepts owned canonical public device clients and rejects inconsistent or disabled clients", async () => {
+		type Client = {
+			clientId: string;
+			tokenEndpointAuthMethod?: string;
+			public?: boolean;
+			disabled?: boolean;
+			userId?: string;
+		};
+		const plugin = createAuthPlugins(makeOriginEnv()).find(
+			(candidate) => candidate.id === "device-authorization",
+		);
+		const options = plugin?.options as unknown as {
+			validateClient(
+				clientId: string,
+				context: {
+					context: { adapter: { findOne: () => Promise<Client | null> } };
+				},
+			): Promise<boolean>;
+		};
+		const client: Client = {
+			clientId: "owned-device-client",
+			tokenEndpointAuthMethod: "none",
+			userId: "device-owner",
+		};
+		const validate = (record: Client | null) =>
+			options.validateClient(client.clientId, {
+				context: { adapter: { findOne: async () => record } },
+			});
+		expect(await validate(client)).toBe(true);
+		expect(await validate({ ...client, public: true })).toBe(true);
+		for (const rejected of [
+			null,
+			{ ...client, public: false },
+			{ ...client, disabled: true },
+			{ ...client, userId: undefined },
+			{ ...client, tokenEndpointAuthMethod: undefined, public: true },
+			{
+				...client,
+				tokenEndpointAuthMethod: "client_secret_basic",
+				public: true,
+			},
+		]) {
+			expect(await validate(rejected)).toBe(false);
+		}
+	});
 	it("authorizes canonical 1.7 clients while rejecting inconsistent legacy flags", async () => {
 		const plugin = createAuthPlugins(makeOriginEnv()).find(
 			(candidate) => candidate.id === "oauth-provider",

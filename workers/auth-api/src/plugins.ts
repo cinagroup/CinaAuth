@@ -444,6 +444,7 @@ export const createAuthPlugins = (
 					clientId: string;
 					disabled?: boolean;
 					public?: boolean;
+					tokenEndpointAuthMethod?: string;
 					referenceId?: string;
 					userId?: string | null;
 				}>({
@@ -452,7 +453,8 @@ export const createAuthPlugins = (
 				});
 				const subject = client ? getOwnedRuntimeSubject(client) : undefined;
 				return Boolean(
-					client?.public === true &&
+					client?.tokenEndpointAuthMethod === "none" &&
+						client.public !== false &&
 						client.disabled !== true &&
 						subject &&
 						(await isRuntimeEntitlementFeatureEnabled(

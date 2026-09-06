@@ -420,7 +420,7 @@ jobs:
         run: |
           curl --fail-with-body --show-error --silent \
             --retry 5 --retry-all-errors --retry-delay 5 \
-            https://auth.cinaseek.ai/api/migrate \
+            'https://auth.cinaseek.ai/api/migrate?feature=organization-advanced' \
             -H "Authorization: Bearer $CINAAUTH_MIGRATION_TOKEN"
 
       - name: Apply Worker migrations
@@ -428,7 +428,7 @@ jobs:
           CINAAUTH_MIGRATION_TOKEN: ${{ secrets.CINAAUTH_MIGRATION_TOKEN }}
         run: |
           curl --fail-with-body --show-error --silent \
-            -X POST https://auth.cinaseek.ai/api/migrate \
+            -X POST 'https://auth.cinaseek.ai/api/migrate?feature=organization-advanced' \
             -H "Authorization: Bearer $CINAAUTH_MIGRATION_TOKEN"
 
       - name: Check Worker readiness
