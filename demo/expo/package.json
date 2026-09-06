@@ -30,7 +30,7 @@
     "cinaauth": "link:../../packages/cinaauth",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "expo": "~55.0.30",
+    "expo": "~55.0.31",
     "expo-constants": "~55.0.17",
     "expo-crypto": "~55.0.19",
     "expo-font": "~55.0.8",
@@ -67,6 +67,6 @@
     "@types/pg": "^8.20.0",
     "@types/react": "^19.2.14",
     "babel-preset-expo": "~55.0.24",
-    "typescript": "catalog:"
+    "typescript": "~5.9.2"
   }
 }
