@@ -1,5 +1,5 @@
 {
-	"$schema": "https://unpkg.com/knip@5/schema-jsonc.json",
+	"$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
 	"ignoreExportsUsedInFile": {
 		"interface": true,
 		"type": true
@@ -7,18 +7,21 @@
 	"tags": ["-lintignore"],
 	"ignore": [
 		// test utilities only imported by test files — invisible to --production
-		"packages/cinaauth/src/client/test-plugin.ts",
-		// CI scripts used by GitHub Actions workflows, not by packages
-		".github/scripts/**"
+		"packages/cinaauth/src/client/test-plugin.ts"
 	],
+	// pbcopy/xclip/clip: OS clipboard utilities shelled out from the CLI; auth: the CLI's own bin, self-invoked
 	"ignoreBinaries": [
 		"playwright",
 		"changeset",
-		// Workflow binaries are declared in their target nested workspaces.
-		"expo",
 		"open",
 		"remark",
 		"tsx",
+		"pbcopy",
+		"xclip",
+		"clip",
+		"auth",
+		// Workflow binaries are declared in their target nested workspaces.
+		"expo",
 		"wrangler"
 	],
 	// exports used only by tests — invisible to --production mode
@@ -88,6 +91,7 @@
 		"workers/privacy-erasure/test/cloudflare-workers-stub.ts": ["files"],
 		"packages/cli/src/commands/init/index.ts": ["exports"],
 		"packages/cli/src/commands/init/utility/imports.ts": ["exports"],
+		"packages/oauth-provider/src/oauth-endpoint.ts": ["exports"],
 		"packages/sso/src/saml/assertions.ts": ["exports"],
 		"packages/sso/src/oidc/discovery.ts": ["exports"],
 		// These equal-valued constants represent distinct OIDC protocol fields.
@@ -127,6 +131,10 @@
 				"kysely!",
 				"nanostores!"
 			]
+		},
+		"packages/release-tooling": {
+			"entry": ["src/commands/*.ts!"],
+			"project": ["src/**/*.ts!", "test/**/*.ts!", "vitest.config.ts!"]
 		},
 		"packages/test-utils": {},
 		"packages/expo": {
@@ -177,6 +185,10 @@
 			"entry": ["scripts/*.mjs!"],
 			// cloudflare:workers is a virtual runtime module, not a package.
 			"ignoreDependencies": ["cloudflare"]
+		},
+		"packages/electron": {
+			"entry": ["src/index.ts!", "src/client.typecheck.ts"],
+			"project": ["src/**/*.ts!"]
 		}
 	},
 	"vitest": {

@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/@changesets/config@3.1.3/schema.json",
   "changelog": [
     "@changesets/changelog-github",
-    { "repo": "cinaauth/cinaauth" }
+    { "repo": "cinagroup/cinaauth" }
   ],
   "commit": false,
   "fixed": [
@@ -12,11 +12,13 @@
       "@cinaauth/cli",
       "@cinaauth/agent-auth",
       "@cinaauth/api-key",
+      "@cinaauth/cimd",
       "@cinaauth/drizzle-adapter",
       "@cinaauth/electron",
       "@cinaauth/expo",
       "@cinaauth/i18n",
       "@cinaauth/kysely-adapter",
+      "@cinaauth/mcp",
       "@cinaauth/memory-adapter",
       "@cinaauth/mongo-adapter",
       "@cinaauth/oauth-provider",
@@ -36,7 +38,7 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "bumpVersionsWithWorkspaceProtocolOnly": true,
-  "ignore": [],
+  "ignore": ["@cinaauth-test/adapter-base", "@cinaauth-test/test-utils"],
   "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
     "onlyUpdatePeerDependentsWhenOutOfRange": true
   }

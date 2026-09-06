@@ -13,6 +13,7 @@ import {
 	transactionsTestSuite,
 	uuidTestSuite,
 } from "../adapter-factory";
+import { compoundIndexTestSuite } from "../adapter-factory/compound-index-test-suite";
 
 // We are not allowed to handle the mssql connection
 // we must let kysely handle it. This is because if kysely is already
@@ -343,6 +344,73 @@ const { execute } = await testAdapter({
 		numberIdTestSuite(),
 		joinsTestSuite(),
 		uuidTestSuite(),
+		compoundIndexTestSuite({
+			async rerunMigrations(options) {
+				try {
+					await query(`
+						IF NOT EXISTS (
+							SELECT 1 FROM sys.schemas WHERE name = N'cinaauth_shadow'
+						)
+							EXEC(N'CREATE SCHEMA [cinaauth_shadow]');
+						IF OBJECT_ID(
+							N'[cinaauth_shadow].[compound_index_subject]',
+							N'U'
+						) IS NOT NULL
+							DROP TABLE [cinaauth_shadow].[compound_index_subject];
+						CREATE TABLE [cinaauth_shadow].[compound_index_subject] (
+							[id] varchar(36) NOT NULL,
+							[issuer_url] varchar(max) NOT NULL,
+							[provider_subject] varchar(max) NOT NULL,
+							[display_name] varchar(255) NOT NULL
+						);
+						CREATE INDEX [compound_identity_uidx]
+							ON [cinaauth_shadow].[compound_index_subject] ([display_name]);
+					`);
+					const migrations = await getMigrations({
+						...options,
+						database: { db: kyselyDB, type: "mssql" },
+					});
+					const pendingMigration = await migrations.compileMigrations();
+					await migrations.runMigrations();
+					return pendingMigration;
+				} finally {
+					await query(`
+						IF OBJECT_ID(
+							N'[cinaauth_shadow].[compound_index_subject]',
+							N'U'
+						) IS NOT NULL
+							DROP TABLE [cinaauth_shadow].[compound_index_subject];
+						IF EXISTS (
+							SELECT 1 FROM sys.schemas WHERE name = N'cinaauth_shadow'
+						)
+							EXEC(N'DROP SCHEMA [cinaauth_shadow]');
+					`);
+				}
+			},
+			mismatchError:
+				'Database index "compound_identity_uidx" on table "compound_index_subject" does not match the configured fields and uniqueness.',
+			async verifyMismatchedIndexRejected(options) {
+				await query(`
+					DROP INDEX [compound_identity_uidx]
+						ON [dbo].[compound_index_subject];
+					CREATE INDEX [compound_identity_uidx]
+						ON [dbo].[compound_index_subject] ([provider_subject]);
+				`);
+				try {
+					await getMigrations({
+						...options,
+						database: { db: kyselyDB, type: "mssql" },
+					});
+				} finally {
+					await query(`
+						DROP INDEX [compound_identity_uidx]
+							ON [dbo].[compound_index_subject];
+						CREATE UNIQUE INDEX [compound_identity_uidx]
+							ON [dbo].[compound_index_subject] ([issuer_url], [provider_subject]);
+					`);
+				}
+			},
+		}),
 	],
 	async onFinish() {
 		kyselyDB.destroy();

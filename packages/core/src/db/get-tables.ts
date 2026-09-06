@@ -1,7 +1,28 @@
 import type { CinaAuthOptions } from "../types";
-import type { CinaAuthDBSchema, DBFieldAttribute } from "./type";
+import { resolveDatabaseSchemaIndexes } from "./database-index";
+import type { CinaAuthDBSchema, DBFieldAttribute, DBTableIndex } from "./type";
 
-export const getAuthTables = (options: CinaAuthOptions): CinaAuthDBSchema => {
+function mergeTableIndexes(
+	...indexCollections: ReadonlyArray<readonly DBTableIndex[] | undefined>
+) {
+	const indexes: DBTableIndex[] = [];
+	const seenIndexDefinitions = new Set<string>();
+	for (const index of indexCollections.flatMap(
+		(collection) => collection ?? [],
+	)) {
+		const definition = JSON.stringify([
+			index.name ?? null,
+			index.fields,
+			index.unique ?? false,
+		]);
+		if (seenIndexDefinitions.has(definition)) continue;
+		seenIndexDefinitions.add(definition);
+		indexes.push(index);
+	}
+	return indexes;
+}
+
+const buildAuthTables = (options: CinaAuthOptions): CinaAuthDBSchema => {
 	const pluginSchema = (options.plugins ?? []).reduce(
 		(acc, plugin) => {
 			const schema = plugin.schema;
@@ -12,6 +33,7 @@ export const getAuthTables = (options: CinaAuthOptions): CinaAuthDBSchema => {
 						...acc[key]?.fields,
 						...value.fields,
 					},
+					indexes: mergeTableIndexes(acc[key]?.indexes, value.indexes),
 					modelName: value.modelName || key,
 					disableMigrations:
 						value.disableMigration ?? acc[key]?.disableMigrations,
@@ -23,6 +45,7 @@ export const getAuthTables = (options: CinaAuthOptions): CinaAuthDBSchema => {
 			string,
 			{
 				fields: Record<string, DBFieldAttribute>;
+				indexes?: readonly DBTableIndex[] | undefined;
 				modelName: string;
 				disableMigrations?: boolean | undefined;
 			}
@@ -62,6 +85,7 @@ export const getAuthTables = (options: CinaAuthOptions): CinaAuthDBSchema => {
 	const verificationTable = {
 		verification: {
 			modelName: options.verification?.modelName || "verification",
+			indexes: verification?.indexes,
 			fields: {
 				identifier: {
 					type: "string",
@@ -102,6 +126,7 @@ export const getAuthTables = (options: CinaAuthOptions): CinaAuthDBSchema => {
 	const sessionTable = {
 		session: {
 			modelName: options.session?.modelName || "session",
+			indexes: session?.indexes,
 			fields: {
 				expiresAt: {
 					type: "date",
@@ -169,9 +194,10 @@ export const getAuthTables = (options: CinaAuthOptions): CinaAuthDBSchema => {
 		},
 	} satisfies CinaAuthDBSchema;
 
-	return {
+	const authTables = {
 		user: {
 			modelName: options.user?.modelName || "user",
+			indexes: user?.indexes,
 			fields: {
 				name: {
 					type: "string",
@@ -224,6 +250,7 @@ export const getAuthTables = (options: CinaAuthOptions): CinaAuthDBSchema => {
 			: {}),
 		account: {
 			modelName: options.account?.modelName || "account",
+			indexes: account?.indexes,
 			fields: {
 				accountId: {
 					type: "string",
@@ -318,4 +345,26 @@ export const getAuthTables = (options: CinaAuthOptions): CinaAuthDBSchema => {
 		...pluginTables,
 		...(shouldAddRateLimitTable ? rateLimitTable : {}),
 	} satisfies CinaAuthDBSchema;
+
+	return authTables;
 };
+
+export function getAuthTablesWithResolvedIndexes(options: CinaAuthOptions) {
+	const tables = buildAuthTables(options);
+	const indexesByTable = resolveDatabaseSchemaIndexes(
+		Object.values(tables)
+			.filter(
+				(table) => !("disableMigrations" in table) || !table.disableMigrations,
+			)
+			.map((table) => ({
+				fields: table.fields,
+				indexes: "indexes" in table ? table.indexes : undefined,
+				tableName: table.modelName,
+			})),
+	);
+
+	return { indexesByTable, tables };
+}
+
+export const getAuthTables = (options: CinaAuthOptions): CinaAuthDBSchema =>
+	getAuthTablesWithResolvedIndexes(options).tables;

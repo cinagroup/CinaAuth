@@ -1,4 +1,4 @@
-﻿import { mcpHandler } from "@cinaauth/oauth-provider";
+﻿import { createMcpProtectedRequestHandler } from "@cinaauth/mcp";
 import { createMcpHandler } from "mcp-handler";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
@@ -61,14 +61,12 @@ const isTrustedCorsOrigin = (origin: string) => {
  * Example derived from https://www.npmjs.com/package/mcp-handler
  */
 const createConfiguredMcpHandler = (baseURL: string) =>
-	mcpHandler(
+	createMcpProtectedRequestHandler(
 		{
 			jwksFetch: loadAuthJwks,
 			jwksCacheKey: AUTH_JWKS_CACHE_KEY,
-			verifyOptions: {
-				audience: baseURL + "/api/mcp",
-				issuer: baseURL,
-			},
+			audience: baseURL + "/api/mcp",
+			issuer: baseURL,
 		},
 		(req, jwt) => {
 			return createMcpHandler(

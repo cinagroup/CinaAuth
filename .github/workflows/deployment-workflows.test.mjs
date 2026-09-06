@@ -96,7 +96,7 @@ test("package preview publishing requires an explicit repository opt-in", () => 
 	const publish = preview.slice(publishStart);
 
 	assert.match(publish, /if: vars\.PKG_PR_NEW_ENABLED == 'true'/);
-	assert.match(publish, /pnpm dlx pkg-pr-new publish/);
+	assert.match(publish, /pnpm exec pkg-pr-new publish/);
 });
 
 test("production writes have only the governed central and Account Phase One entrypoints", () => {

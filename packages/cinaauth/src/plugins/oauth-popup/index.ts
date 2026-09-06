@@ -11,6 +11,7 @@ import {
 	splitSetCookieHeader,
 } from "../../cookies";
 import { generateRandomString } from "../../crypto";
+import { generateIdTokenNonce } from "../../oauth2/state";
 import type { StateData } from "../../state";
 import { generateGenericState, INTERNAL_STATE_KEYS } from "../../state";
 import { HIDE_METADATA } from "../../utils/hide-metadata";
@@ -209,6 +210,7 @@ const oauthPopupStart = createAuthEndpoint(
 		let url: URL;
 		try {
 			const codeVerifier = generateRandomString(128);
+			const idTokenNonce = generateIdTokenNonce(provider);
 			const parsedAdditionalData = c.query.additionalData
 				? (safeJSONParse<Record<string, unknown>>(c.query.additionalData) ?? {})
 				: {};
@@ -221,6 +223,7 @@ const oauthPopupStart = createAuthEndpoint(
 				...additionalData,
 				callbackURL,
 				codeVerifier,
+				idTokenNonce,
 				errorURL: c.query.errorCallbackURL,
 				newUserURL: c.query.newUserCallbackURL,
 				requestSignUp: c.query.requestSignUp === "true" ? true : undefined,
@@ -243,6 +246,7 @@ const oauthPopupStart = createAuthEndpoint(
 			url = await provider.createAuthorizationURL({
 				state,
 				codeVerifier,
+				idTokenNonce,
 				redirectURI: `${c.context.baseURL}/callback/${provider.id}`,
 				scopes: c.query.scopes ? c.query.scopes.split(",") : undefined,
 			});

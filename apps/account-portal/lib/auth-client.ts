@@ -2,7 +2,7 @@ import { apiKeyClient } from "@cinaauth/api-key/client";
 import { electronProxyClient } from "@cinaauth/electron/proxy";
 import { oauthProviderClient } from "@cinaauth/oauth-provider/client";
 import { passkeyClient } from "@cinaauth/passkey/client";
-import { scimClient } from "@cinaauth/scim/client";
+import { scimClient } from "@cinaauth/scim/legacy/client";
 import { ssoClient } from "@cinaauth/sso/client";
 import { stripeClient } from "@cinaauth/stripe/client";
 import {
@@ -10,7 +10,6 @@ import {
 	anonymousClient,
 	deviceAuthorizationClient,
 	emailOTPClient,
-	genericOAuthClient,
 	jwtClient,
 	lastLoginMethodClient,
 	multiSessionClient,
@@ -18,9 +17,9 @@ import {
 	oneTimeTokenClient,
 	organizationClient,
 	phoneNumberClient,
-	siweClient,
 	twoFactorClient,
 } from "cinaauth/client/plugins";
+import { siweClient } from "cinaauth/plugins/siwe-v2/client";
 import { createAuthClient } from "cinaauth/react";
 import { toast } from "sonner";
 import { adminAccessControl, adminRoles } from "./admin-access";
@@ -70,7 +69,6 @@ export const authClient = createAuthClient({
 		lastLoginMethodClient(),
 		emailOTPClient(),
 		phoneNumberClient(),
-		genericOAuthClient(),
 		oneTimeTokenClient(),
 		siweClient(),
 		electronProxyClient({

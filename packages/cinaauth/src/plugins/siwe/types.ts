@@ -2,12 +2,6 @@
  * SIWE Plugin Type Definitions
  */
 
-export const SIWE_MESSAGE_MAX_LENGTH = 16_384;
-export const SIWE_SIGNATURE_MAX_LENGTH = 512;
-
-export const isSiweMessageWithinLimit = (message: string) =>
-	new TextEncoder().encode(message).byteLength <= SIWE_MESSAGE_MAX_LENGTH;
-
 export interface WalletAddress {
 	id: string;
 	userId: string;

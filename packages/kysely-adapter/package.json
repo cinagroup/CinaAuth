@@ -1,6 +1,6 @@
 {
   "name": "@cinaauth/kysely-adapter",
-  "version": "1.6.26",
+  "version": "1.7.3",
   "description": "Kysely adapter for CinaAuth",
   "type": "module",
   "license": "MIT",
@@ -59,10 +59,12 @@
     }
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250121.0",
     "@cinaauth/core": "workspace:*",
     "@better-auth/utils": "catalog:",
+    "@cloudflare/workers-types": "^4.20250121.0",
+    "@types/pg": "^8.20.0",
     "kysely": "catalog:",
+    "pg": "^8.0.0",
     "tsdown": "catalog:",
     "typescript": "catalog:"
   }

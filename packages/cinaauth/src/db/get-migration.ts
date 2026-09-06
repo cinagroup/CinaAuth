@@ -2,9 +2,30 @@ import type { CinaAuthOptions } from "@cinaauth/core";
 import type { DBFieldAttribute, DBFieldType } from "@cinaauth/core/db";
 import { getAuthTables } from "@cinaauth/core/db";
 import { initGetFieldName, initGetModelName } from "@cinaauth/core/db/adapter";
+import type { ResolvedDBTableIndex } from "@cinaauth/core/db/internal";
+import {
+	diffSchema,
+	formatSchemaFinding,
+	getDatabaseFieldIndexName,
+	getDatabaseIndexStringLength,
+	getPortableDatabaseIdentifierKey,
+	invalidateSchemaChecks,
+} from "@cinaauth/core/db/internal";
 import { createLogger } from "@cinaauth/core/env";
-import type { KyselyDatabaseType } from "@cinaauth/kysely-adapter";
-import { createKyselyAdapter } from "@cinaauth/kysely-adapter";
+import { CinaAuthError } from "@cinaauth/core/error";
+import type {
+	DatabaseIndexColumnMetadata,
+	DatabaseIndexIntrospector,
+	DatabaseIndexMetadata,
+	KyselyDatabaseType,
+} from "@cinaauth/kysely-adapter";
+import {
+	createKyselyAdapter,
+	getMssqlSchema,
+	getPostgresSchema,
+	toIntrospectedTables,
+	toPhysicalSchema,
+} from "@cinaauth/kysely-adapter";
 import type {
 	AlterTableColumnAlteringBuilder,
 	ColumnDataType,
@@ -70,6 +91,461 @@ const map = {
 	mssql: mssqlMap,
 };
 
+interface DatabaseIndexRow {
+	columnName?: string;
+	column_name?: string;
+	COLUMN_NAME?: string | null;
+	columnPosition?: number | string;
+	column_position?: number | string;
+	isDisabled?: boolean | number | string;
+	isHypothetical?: boolean | number | string;
+	isPartial?: boolean | number | string;
+	indexName?: string;
+	index_name?: string;
+	INDEX_NAME?: string;
+	isUnique?: boolean | number | string;
+	is_unique?: boolean | number | string;
+	isValid?: boolean | number | string;
+	keyOrdinal?: number | string;
+	key_ordinal?: number | string;
+	name?: string;
+	nonUnique?: boolean | number | string;
+	non_unique?: boolean | number | string;
+	NON_UNIQUE?: boolean | number | string;
+	ordinality?: number | string;
+	prefixLength?: number | string | null;
+	seqInIndex?: number | string;
+	seq_in_index?: number | string;
+	SEQ_IN_INDEX?: number | string;
+	seqno?: number | string;
+	tableName?: string;
+	table_name?: string;
+	TABLE_NAME?: string;
+	tablename?: string;
+	tbl_name?: string;
+}
+
+interface DatabaseIndexDefinition {
+	columns: readonly string[];
+	name: string;
+	table: string;
+	unique: boolean;
+	validFullColumns: boolean;
+}
+
+interface DatabaseColumnRow {
+	characterMaximumLength?: number | string | null;
+	CHARACTER_MAXIMUM_LENGTH?: number | string | null;
+	columnName?: string;
+	COLUMN_NAME?: string;
+	dataType?: string;
+	DATA_TYPE?: string;
+	maxLength?: number | string;
+	tableName?: string;
+	TABLE_NAME?: string;
+}
+
+interface DatabaseColumnBound {
+	maxIndexBytes: number | null;
+}
+
+function createDatabaseIndexKey(tableName: string, indexName: string) {
+	return `${getPortableDatabaseIdentifierKey(tableName)}\u0000${getPortableDatabaseIdentifierKey(indexName)}`;
+}
+
+function createDatabaseColumnKey(tableName: string, columnName: string) {
+	return `${tableName}\u0000${columnName}`;
+}
+
+function databaseIndexMatches(
+	existing: DatabaseIndexDefinition,
+	configured: ResolvedDBTableIndex,
+) {
+	return (
+		existing.unique === (configured.unique ?? false) &&
+		existing.validFullColumns &&
+		existing.columns.length === configured.columns.length &&
+		existing.columns.every(
+			(column, position) => column === configured.columns[position],
+		)
+	);
+}
+
+function databaseValueIsTrue(value: boolean | number | string | undefined) {
+	if (typeof value === "boolean") return value;
+	if (typeof value === "number") return value !== 0;
+	return value === "1" || value?.toLowerCase() === "true" || value === "t";
+}
+
+function toDatabaseIndexMap(indexes: readonly DatabaseIndexMetadata[]) {
+	return new Map<string, DatabaseIndexDefinition>(
+		indexes.map((index) => {
+			const columns = [...index.columns].sort(
+				(left, right) => left.position - right.position,
+			);
+			return [
+				createDatabaseIndexKey(index.table, index.name),
+				{
+					columns: columns.flatMap((column) =>
+						column.name === null ? [] : [column.name],
+					),
+					name: index.name,
+					table: index.table,
+					unique: index.unique,
+					validFullColumns:
+						index.valid &&
+						!index.partial &&
+						columns.length > 0 &&
+						columns.every(
+							(column) => column.name !== null && column.fullLength,
+						),
+				},
+			] as const;
+		}),
+	);
+}
+
+async function getDatabaseIndexMap(
+	db: Kysely<unknown>,
+	dbType: KyselyDatabaseType,
+	schemaName: string,
+	tableNames: readonly string[],
+	introspectIndexes: DatabaseIndexIntrospector | undefined,
+) {
+	if (introspectIndexes) {
+		const indexes = await introspectIndexes(tableNames);
+		return toDatabaseIndexMap(indexes);
+	}
+
+	let rows: readonly DatabaseIndexRow[];
+	if (dbType === "sqlite") {
+		rows = (
+			await sql<DatabaseIndexRow>`
+				SELECT
+					tables.name AS "tableName",
+					index_list.name AS "indexName",
+					index_info.name AS "columnName",
+					index_list."unique" AS "isUnique",
+					index_list.partial AS "isPartial",
+					index_info.seqno AS "columnPosition"
+				FROM sqlite_master AS tables
+				INNER JOIN pragma_index_list(tables.name) AS index_list
+				INNER JOIN pragma_index_info(index_list.name) AS index_info
+				WHERE tables.type = 'table'
+			`.execute(db)
+		).rows;
+	} else if (dbType === "postgres") {
+		rows = (
+			await sql<DatabaseIndexRow>`
+				SELECT
+					table_class.relname AS "tableName",
+					index_class.relname AS "indexName",
+					index_attribute.attname AS "columnName",
+					index_data.indisunique AS "isUnique",
+					index_data.indisvalid AS "isValid",
+					(index_data.indpred IS NOT NULL) AS "isPartial",
+					index_column.ordinality AS "columnPosition"
+				FROM pg_class AS table_class
+				INNER JOIN pg_namespace AS table_namespace
+					ON table_namespace.oid = table_class.relnamespace
+				INNER JOIN pg_index AS index_data
+					ON index_data.indrelid = table_class.oid
+				INNER JOIN pg_class AS index_class
+					ON index_class.oid = index_data.indexrelid
+				INNER JOIN LATERAL unnest(index_data.indkey)
+					WITH ORDINALITY AS index_column(attribute_number, ordinality)
+					ON TRUE
+				LEFT JOIN pg_attribute AS index_attribute
+					ON index_attribute.attrelid = table_class.oid
+					AND index_attribute.attnum = index_column.attribute_number
+				WHERE table_namespace.nspname = ${schemaName}
+					AND table_class.relkind = 'r'
+					AND index_column.ordinality <= index_data.indnkeyatts
+			`.execute(db)
+		).rows;
+	} else if (dbType === "mysql") {
+		rows = (
+			await sql<DatabaseIndexRow>`
+				SELECT
+					table_name AS tableName,
+					index_name AS indexName,
+					column_name AS columnName,
+					non_unique AS nonUnique,
+					seq_in_index AS columnPosition,
+					sub_part AS prefixLength,
+					COALESCE(LOWER(comment) = 'disabled', FALSE) AS isDisabled
+				FROM information_schema.statistics
+				WHERE table_schema = DATABASE()
+			`.execute(db)
+		).rows;
+	} else {
+		rows = (
+			await sql<DatabaseIndexRow>`
+				SELECT
+					tables.name AS "tableName",
+					indexes.name AS "indexName",
+					columns.name AS "columnName",
+					indexes.is_unique AS "isUnique",
+					indexes.is_disabled AS "isDisabled",
+					indexes.is_hypothetical AS "isHypothetical",
+					indexes.has_filter AS "isPartial",
+					index_columns.key_ordinal AS "columnPosition"
+				FROM sys.indexes AS indexes
+				INNER JOIN sys.tables AS tables
+					ON indexes.object_id = tables.object_id
+				INNER JOIN sys.schemas AS table_schemas
+					ON table_schemas.schema_id = tables.schema_id
+				INNER JOIN sys.index_columns AS index_columns
+					ON index_columns.object_id = indexes.object_id
+					AND index_columns.index_id = indexes.index_id
+				INNER JOIN sys.columns AS columns
+					ON columns.object_id = index_columns.object_id
+					AND columns.column_id = index_columns.column_id
+				WHERE table_schemas.name = ${schemaName}
+					AND indexes.name IS NOT NULL
+					AND index_columns.key_ordinal > 0
+			`.execute(db)
+		).rows;
+	}
+
+	const indexMetadata = new Map<string, DatabaseIndexMetadata>();
+	for (const row of rows) {
+		const table =
+			row.tableName ??
+			row.table_name ??
+			row.TABLE_NAME ??
+			row.tablename ??
+			row.tbl_name;
+		const name = row.indexName ?? row.index_name ?? row.INDEX_NAME ?? row.name;
+		const column = row.columnName ?? row.column_name ?? row.COLUMN_NAME;
+		if (!table || !name) continue;
+		const key = createDatabaseIndexKey(table, name);
+		const nonUnique = row.nonUnique ?? row.non_unique ?? row.NON_UNIQUE;
+		const unique =
+			nonUnique === undefined
+				? databaseValueIsTrue(row.isUnique ?? row.is_unique)
+				: !databaseValueIsTrue(nonUnique);
+		const position = Number(
+			row.columnPosition ??
+				row.column_position ??
+				row.keyOrdinal ??
+				row.key_ordinal ??
+				row.ordinality ??
+				row.seqInIndex ??
+				row.seq_in_index ??
+				row.SEQ_IN_INDEX ??
+				row.seqno ??
+				0,
+		);
+		const indexColumn = {
+			fullLength:
+				column !== undefined &&
+				column !== null &&
+				(row.prefixLength === undefined || row.prefixLength === null),
+			name: column ?? null,
+			position,
+		} satisfies DatabaseIndexColumnMetadata;
+		const partial = databaseValueIsTrue(row.isPartial);
+		const valid =
+			!databaseValueIsTrue(row.isDisabled) &&
+			!databaseValueIsTrue(row.isHypothetical) &&
+			(row.isValid === undefined || databaseValueIsTrue(row.isValid));
+		const existing = indexMetadata.get(key);
+		indexMetadata.set(
+			key,
+			existing
+				? {
+						...existing,
+						columns: [...existing.columns, indexColumn],
+						partial: existing.partial || partial,
+						valid: existing.valid && valid,
+					}
+				: {
+						columns: [indexColumn],
+						name,
+						partial,
+						table,
+						unique,
+						valid,
+					},
+		);
+	}
+
+	return toDatabaseIndexMap([...indexMetadata.values()]);
+}
+
+async function getDatabaseColumnBounds(
+	db: Kysely<unknown>,
+	dbType: KyselyDatabaseType,
+	schemaName: string,
+) {
+	if (dbType !== "mysql" && dbType !== "mssql") {
+		return new Map<string, DatabaseColumnBound>();
+	}
+
+	let rows: readonly DatabaseColumnRow[];
+	if (dbType === "mysql") {
+		rows = (
+			await sql<DatabaseColumnRow>`
+				SELECT
+					table_name AS tableName,
+					column_name AS columnName,
+					data_type AS dataType,
+					character_maximum_length AS characterMaximumLength
+				FROM information_schema.columns
+				WHERE table_schema = DATABASE()
+			`.execute(db)
+		).rows;
+	} else {
+		rows = (
+			await sql<DatabaseColumnRow>`
+				SELECT
+					tables.name AS "tableName",
+					columns.name AS "columnName",
+					types.name AS "dataType",
+					columns.max_length AS "maxLength"
+				FROM sys.columns AS columns
+				INNER JOIN sys.tables AS tables
+					ON tables.object_id = columns.object_id
+				INNER JOIN sys.schemas AS table_schemas
+					ON table_schemas.schema_id = tables.schema_id
+				INNER JOIN sys.types AS types
+					ON types.user_type_id = columns.user_type_id
+				WHERE table_schemas.name = ${schemaName}
+			`.execute(db)
+		).rows;
+	}
+
+	return new Map(
+		rows.flatMap((row) => {
+			const table = row.tableName ?? row.TABLE_NAME;
+			const column = row.columnName ?? row.COLUMN_NAME;
+			const dataType = (row.dataType ?? row.DATA_TYPE)?.toLowerCase();
+			if (!table || !column || !dataType) return [];
+
+			if (dbType === "mysql") {
+				const characterLength =
+					row.characterMaximumLength ?? row.CHARACTER_MAXIMUM_LENGTH;
+				const maxIndexBytes =
+					characterLength === null || characterLength === undefined
+						? null
+						: Number(characterLength) * 4;
+				return [
+					[createDatabaseColumnKey(table, column), { maxIndexBytes }] as const,
+				];
+			}
+
+			const maxLength = Number(row.maxLength ?? -1);
+			return [
+				[
+					createDatabaseColumnKey(table, column),
+					{ maxIndexBytes: maxLength < 0 ? null : maxLength },
+				] as const,
+			];
+		}),
+	);
+}
+
+function assertExistingTableIndexFits({
+	columnBounds,
+	dbType,
+	existingColumns,
+	fields,
+	indexes,
+	index,
+	table,
+}: {
+	columnBounds: ReadonlyMap<string, DatabaseColumnBound>;
+	dbType: "mssql" | "mysql";
+	existingColumns: ReadonlySet<string>;
+	fields: Readonly<Record<string, DBFieldAttribute>>;
+	indexes: readonly ResolvedDBTableIndex[];
+	index: ResolvedDBTableIndex;
+	table: string;
+}) {
+	const byteBudget = dbType === "mysql" ? 3072 : 1700;
+	let requiredBytes = 0;
+	for (const column of index.columns) {
+		const field = fields[column];
+		if (!field) continue;
+		if (field.type === "string" || Array.isArray(field.type)) {
+			if (!existingColumns.has(column)) {
+				const generatedLength = getDatabaseIndexStringLength({
+					columnName: column,
+					dialect: dbType,
+					fields,
+					indexes,
+				});
+				requiredBytes += (generatedLength ?? 0) * (dbType === "mysql" ? 4 : 1);
+				continue;
+			}
+			const bound = columnBounds.get(createDatabaseColumnKey(table, column));
+			if (!bound?.maxIndexBytes) {
+				throw new CinaAuthError(
+					`Cannot create database index "${index.name}" on existing table "${table}" because column "${column}" is not bounded for ${dbType === "mysql" ? "MySQL" : "SQL Server"}. Change it to a bounded string column, resolve oversized values, then run the migration again.`,
+				);
+			}
+			requiredBytes += bound.maxIndexBytes;
+		} else {
+			requiredBytes += 16;
+		}
+	}
+	if (requiredBytes > byteBudget) {
+		throw new CinaAuthError(
+			`Cannot create database index "${index.name}" on existing table "${table}" because its columns can exceed ${dbType === "mysql" ? "MySQL" : "SQL Server"}'s ${byteBudget}-byte index-key limit. Bound the indexed string columns to the generated schema lengths, resolve oversized values, then run the migration again.`,
+		);
+	}
+}
+
+/**
+ * Thrown when {@link getMigrations} refuses to add a required column with no
+ * default value to a populated table. Distinct from the plain
+ * {@link CinaAuthError} thrown for index-definition conflicts, so callers
+ * can tell the two apart without matching on message text.
+ */
+export class UnsafeMigrationError extends CinaAuthError {}
+
+function hasTimestampColumnDefault(
+	field: DBFieldAttribute,
+	dbType: KyselyDatabaseType,
+) {
+	return (
+		field.type === "date" &&
+		typeof field.defaultValue === "function" &&
+		(dbType === "postgres" || dbType === "mysql" || dbType === "mssql")
+	);
+}
+
+// A required column added to a populated table needs a SQL default, or the NOT
+// NULL add fails. Nullable unique columns are excluded: NULL is their only
+// unique-safe backfill. A required unique column keeps its default; on a table
+// with more than one row the unique index then rejects the shared backfill,
+// which no generated migration can avoid.
+function hasStaticColumnDefault(field: DBFieldAttribute) {
+	return (
+		!(field.unique && field.required === false) &&
+		(field.type === "string" ||
+			field.type === "number" ||
+			field.type === "boolean") &&
+		field.defaultValue !== undefined &&
+		field.defaultValue !== null &&
+		typeof field.defaultValue !== "function"
+	);
+}
+
+async function tableHasRows(
+	db: Kysely<Record<string, Record<string, unknown>>>,
+	dbType: KyselyDatabaseType,
+	table: string,
+) {
+	const probe = db.selectFrom(table).select(sql`1`.as("present"));
+	const rows = await (dbType === "mssql"
+		? probe.top(1)
+		: probe.limit(1)
+	).execute();
+	return rows.length > 0;
+}
+
 export function matchType(
 	columnDataType: string,
 	fieldType: DBFieldType,
@@ -89,41 +565,37 @@ export function matchType(
 }
 
 /**
- * Get the current PostgreSQL schema (search_path) for the database connection
- * Returns the first schema in the search_path, defaulting to 'public' if not found
+ * Build the migration plan that `auth migrate` executes and `auth generate`
+ * prints for the Kysely adapter.
+ *
+ * Adding a required column without a default to a populated table is refused:
+ * existing rows have no value to backfill. `throwOnUnsafe` picks how that
+ * refusal is delivered: executing callers get an {@link UnsafeMigrationError},
+ * read-only callers get the plan plus the same message in `unsafeChanges`.
+ *
+ * @throws {UnsafeMigrationError} when a required column cannot be migrated
+ * safely and `throwOnUnsafe` is left on.
+ * @throws {CinaAuthError} when an index definition conflicts with an
+ * existing or already-planned index.
  */
-async function getPostgresSchema(db: Kysely<unknown>): Promise<string> {
-	try {
-		const result = await sql<{
-			search_path?: string;
-			searchPath?: string;
-		}>`SHOW search_path`.execute(db);
-		const searchPath =
-			result.rows[0]?.search_path ?? result.rows[0]?.searchPath;
-		if (searchPath) {
-			// search_path can be a comma-separated list like "$user, public" or '"$user", public'
-			// Supabase may return escaped format like '"\$user", public'
-			// We want the first non-variable schema
-			const schemas = searchPath
-				.split(",")
-				.map((s) => s.trim())
-				// Remove quotes and filter out variables like $user
-				.map((s) => s.replace(/^["']|["']$/g, ""))
-				// Filter out variable references like $user, \$user (escaped)
-				.filter((s) => !s.startsWith("$") && !s.startsWith("\\$"));
-			return schemas[0] || "public";
-		}
-	} catch {
-		// If query fails, fall back to public schema
-	}
-	return "public";
-}
-
-export async function getMigrations(config: CinaAuthOptions) {
+export async function getMigrations(
+	config: CinaAuthOptions,
+	{ throwOnUnsafe = true }: { throwOnUnsafe?: boolean } = {},
+) {
 	const CinaAuthSchema = getSchema(config);
+	const authTables = getAuthTables(config);
 	const logger = createLogger(config.logger);
+	const unsafeChanges: string[] = [];
+	const reportUnsafeChange = (message: string) => {
+		if (throwOnUnsafe) throw new UnsafeMigrationError(message);
+		unsafeChanges.push(message);
+	};
 
-	let { kysely: db, databaseType: dbType } = await createKyselyAdapter(config);
+	let {
+		kysely: db,
+		databaseType: dbType,
+		introspectIndexes,
+	} = await createKyselyAdapter(config);
 
 	if (!dbType) {
 		logger.warn(
@@ -139,8 +611,7 @@ export async function getMigrations(config: CinaAuthOptions) {
 		process.exit(1);
 	}
 
-	// For PostgreSQL, detect and log the current schema being used
-	let currentSchema = "public";
+	let currentSchema = dbType === "mssql" ? await getMssqlSchema(db) : "public";
 	if (dbType === "postgres") {
 		currentSchema = await getPostgresSchema(db);
 		logger.debug(
@@ -170,11 +641,27 @@ export async function getMigrations(config: CinaAuthOptions) {
 				`Could not verify schema existence: ${error instanceof Error ? error.message : String(error)}`,
 			);
 		}
+	} else if (dbType === "mssql") {
+		logger.debug(
+			`SQL Server migration: Using schema '${currentSchema}' (from the current user's default schema)`,
+		);
 	}
 
 	const allTableMetadata = await db.introspection.getTables();
+	const databaseIndexMap = await getDatabaseIndexMap(
+		db,
+		dbType,
+		currentSchema,
+		allTableMetadata.map((table) => table.name),
+		introspectIndexes,
+	);
+	const databaseColumnBounds = await getDatabaseColumnBounds(
+		db,
+		dbType,
+		currentSchema,
+	);
 
-	// For PostgreSQL, filter tables to only those in the target schema
+	// Filter introspected tables to the schema used by unqualified migrations.
 	let tableMetadata = allTableMetadata;
 	if (dbType === "postgres") {
 		// Get tables with their schema information
@@ -208,7 +695,20 @@ export async function getMigrations(config: CinaAuthOptions) {
 			);
 			// Fall back to using all tables if schema filtering fails
 		}
+	} else if (dbType === "mssql") {
+		tableMetadata = allTableMetadata.filter(
+			(table) => table.schema === currentSchema,
+		);
 	}
+	// Columns the migration cannot fix: required, without a default, and never
+	// written by CinaAuth. Reported so the CLI stops before an insert fails.
+	const schemaProblems = diffSchema(
+		toPhysicalSchema(db, CinaAuthSchema),
+		toIntrospectedTables(tableMetadata),
+	)
+		.filter((finding) => finding.kind === "unexpected-required-column")
+		.map((finding) => formatSchemaFinding(finding, "database"));
+
 	const toBeCreated: {
 		table: string;
 		fields: Record<string, DBFieldAttribute>;
@@ -219,12 +719,74 @@ export async function getMigrations(config: CinaAuthOptions) {
 		fields: Record<string, DBFieldAttribute>;
 		order: number;
 	}[] = [];
+	const toBeAddedIndexes: {
+		table: string;
+		index: ResolvedDBTableIndex;
+		name: string;
+	}[] = [];
+	const plannedIndexes = new Map<string, ResolvedDBTableIndex>();
 
 	for (const [key, value] of Object.entries(CinaAuthSchema)) {
 		if (value.disableMigrations) {
 			continue;
 		}
-		const table = tableMetadata.find((t) => t.name === key);
+		const table = tableMetadata.find((table) => table.name === key);
+		for (const index of value.indexes ?? []) {
+			const name = index.name;
+			const indexKey = createDatabaseIndexKey(key, name);
+			const existingIndex = databaseIndexMap.get(indexKey);
+			if (existingIndex) {
+				if (!databaseIndexMatches(existingIndex, index)) {
+					throw new CinaAuthError(
+						`Database index "${name}" on table "${key}" does not match the configured fields and uniqueness. Rename or replace the existing index, then run the migration again.`,
+					);
+				}
+				continue;
+			}
+			if (dbType === "sqlite" || dbType === "postgres") {
+				const indexOnAnotherTable = [...databaseIndexMap.values()].find(
+					(databaseIndex) =>
+						getPortableDatabaseIdentifierKey(databaseIndex.name) ===
+							getPortableDatabaseIdentifierKey(name) &&
+						getPortableDatabaseIdentifierKey(databaseIndex.table) !==
+							getPortableDatabaseIdentifierKey(key),
+				);
+				if (indexOnAnotherTable) {
+					throw new CinaAuthError(
+						`Database index name "${name}" is already used by table "${indexOnAnotherTable.table}". Index names must be unique across the schema.`,
+					);
+				}
+			}
+			const plannedIndex = plannedIndexes.get(indexKey);
+			if (plannedIndex) {
+				const plannedDefinition: DatabaseIndexDefinition = {
+					columns: plannedIndex.columns,
+					name: plannedIndex.name,
+					table: key,
+					unique: plannedIndex.unique ?? false,
+					validFullColumns: true,
+				};
+				if (!databaseIndexMatches(plannedDefinition, index)) {
+					throw new CinaAuthError(
+						`Database index name "${name}" identifies more than one index on table "${key}".`,
+					);
+				}
+				continue;
+			}
+			if (table && (dbType === "mysql" || dbType === "mssql")) {
+				assertExistingTableIndexFits({
+					columnBounds: databaseColumnBounds,
+					dbType,
+					existingColumns: new Set(table.columns.map((column) => column.name)),
+					fields: value.fields,
+					index,
+					indexes: value.indexes ?? [],
+					table: key,
+				});
+			}
+			plannedIndexes.set(indexKey, index);
+			toBeAddedIndexes.push({ table: key, index, name });
+		}
 		if (!table) {
 			const tIndex = toBeCreated.findIndex((t) => t.table === key);
 			const tableData = {
@@ -259,6 +821,12 @@ export async function getMigrations(config: CinaAuthOptions) {
 				continue;
 			}
 
+			if (field.required !== false && column.isNullable) {
+				logger.warn(
+					`Column "${fieldName}" on table "${key}" stays nullable while the schema declares the field required, so existing rows can still hold null. Backfill every row for this column and enforce NOT NULL to remove the drift.`,
+				);
+			}
+
 			if (matchType(column.dataType, field.type, dbType)) {
 				continue;
 			} else {
@@ -285,7 +853,11 @@ export async function getMigrations(config: CinaAuthOptions) {
 	const useUUIDs = config.advanced?.database?.generateId === "uuid";
 	const useNumberId = config.advanced?.database?.generateId === "serial";
 
-	function getType(field: DBFieldAttribute, fieldName: string) {
+	function getType(
+		field: DBFieldAttribute,
+		fieldName: string,
+		tableIndexStringLength?: number | undefined,
+	) {
 		const type = field.type;
 		const provider = dbType || "sqlite";
 		type StringOnlyUnion<T> = T extends string ? T : never;
@@ -296,17 +868,20 @@ export async function getMigrations(config: CinaAuthOptions) {
 			string: {
 				sqlite: "text",
 				postgres: "text",
-				mysql: field.unique
-					? "varchar(255)"
-					: field.references
-						? "varchar(36)"
-						: field.sortable
-							? "varchar(255)"
-							: field.index
+				mysql: tableIndexStringLength
+					? `varchar(${tableIndexStringLength})`
+					: field.unique
+						? "varchar(255)"
+						: field.references
+							? "varchar(36)"
+							: field.sortable
 								? "varchar(255)"
-								: "text",
-				mssql:
-					field.unique || field.sortable
+								: field.index
+									? "varchar(255)"
+									: "text",
+				mssql: tableIndexStringLength
+					? `varchar(${tableIndexStringLength})`
+					: field.unique || field.sortable
 						? "varchar(255)"
 						: field.references
 							? "varchar(36)"
@@ -401,11 +976,11 @@ export async function getMigrations(config: CinaAuthOptions) {
 		return typeMap[type][provider];
 	}
 	const getModelName = initGetModelName({
-		schema: getAuthTables(config),
+		schema: authTables,
 		usePlural: false,
 	});
 	const getFieldName = initGetFieldName({
-		schema: getAuthTables(config),
+		schema: authTables,
 		usePlural: false,
 	});
 
@@ -425,22 +1000,79 @@ export async function getMigrations(config: CinaAuthOptions) {
 	// Indexes are collected separately and appended last to ensure all
 	// referenced columns/tables exist before any CREATE INDEX executes.
 	const deferredIndexes: CreateIndexBuilder[] = [];
+	const getTableIndexStringLength = (tableName: string, fieldName: string) => {
+		if (dbType !== "mysql" && dbType !== "mssql") return undefined;
+		const table = CinaAuthSchema[tableName];
+		if (!table) return undefined;
+		return getDatabaseIndexStringLength({
+			columnName: fieldName,
+			dialect: dbType,
+			fields: table.fields,
+			indexes: table.indexes ?? [],
+		});
+	};
 
 	if (toBeAdded.length) {
+		const populatedTables = new Map<string, boolean>();
 		for (const table of toBeAdded) {
 			for (const [fieldName, field] of Object.entries(table.fields)) {
-				const type = getType(field, fieldName);
+				const timestampDefault = hasTimestampColumnDefault(field, dbType);
+				const staticDefault = hasStaticColumnDefault(field);
+				if (field.required !== false && !timestampDefault && !staticDefault) {
+					let populated = populatedTables.get(table.table);
+					if (populated === undefined) {
+						populated = await tableHasRows(db, dbType, table.table);
+						populatedTables.set(table.table, populated);
+					}
+					if (populated) {
+						const textDetail =
+							field.type === "string"
+								? " For a text column, every existing row ends up with the same empty string."
+								: "";
+						reportUnsafeChange(
+							`Cannot add required column "${fieldName}" to populated table "${table.table}": the schema declares no default value, so existing rows have no value to backfill. MySQL accepts this statement instead of rejecting it and fills every existing row with an implicit default for the column type, reporting a successful migration over corrupted data.${textDetail} Add the column as nullable, backfill a correct value for every row, then make it NOT NULL.`,
+						);
+					}
+				}
+				const type = getType(
+					field,
+					fieldName,
+					getTableIndexStringLength(table.table, fieldName),
+				);
 				const builder = db.schema.alterTable(table.table);
 
-				if (field.index) {
-					const indexName = `${table.table}_${fieldName}_${field.unique ? "uidx" : "idx"}`;
-					const indexBuilder = db.schema
+				// SQLite cannot add a column with an inline UNIQUE constraint, so a
+				// unique field is enforced with a separate index in the ALTER path.
+				if (field.index || field.unique) {
+					const indexName = getDatabaseFieldIndexName(
+						table.table,
+						fieldName,
+						field.unique ?? false,
+					);
+					let indexBuilder = db.schema
 						.createIndex(indexName)
 						.on(table.table)
 						.columns([fieldName]);
-					deferredIndexes.push(
-						field.unique ? indexBuilder.unique() : indexBuilder,
-					);
+					if (field.unique) {
+						indexBuilder = indexBuilder.unique();
+						if (field.required === false && dbType === "mssql") {
+							// MSSQL unique indexes treat NULLs as duplicates, so the
+							// NULL backfill on existing rows would abort the index
+							// build. Filtering NULLs matches the other dialects.
+							indexBuilder = indexBuilder.where(fieldName, "is not", null);
+						}
+						if (
+							field.required !== false &&
+							field.defaultValue !== undefined &&
+							field.defaultValue !== null &&
+							typeof field.defaultValue !== "function"
+						) {
+							logger.warn(
+								`Adding unique column "${fieldName}" to existing table "${table.table}" backfills every existing row with its default value. If the table has more than one row, creating the unique index "${indexName}" will fail; backfill distinct values manually, then re-run the migration or create the index yourself.`,
+							);
+						}
+					}
+					deferredIndexes.push(indexBuilder);
 				}
 
 				const built = builder.addColumn(fieldName, type, (col) => {
@@ -455,19 +1087,22 @@ export async function getMigrations(config: CinaAuthOptions) {
 							)
 							.onDelete(field.references.onDelete || "cascade");
 					}
-					if (field.unique) {
-						col = col.unique();
-					}
-					if (
-						field.type === "date" &&
-						typeof field.defaultValue === "function" &&
-						(dbType === "postgres" || dbType === "mysql" || dbType === "mssql")
-					) {
+					if (timestampDefault) {
 						if (dbType === "mysql") {
 							col = col.defaultTo(sql`CURRENT_TIMESTAMP(3)`);
 						} else {
 							col = col.defaultTo(sql`CURRENT_TIMESTAMP`);
 						}
+					} else if (staticDefault) {
+						// Booleans map to 1/0 on engines without a native boolean type.
+						col = col.defaultTo(
+							typeof field.defaultValue === "boolean" &&
+								(dbType === "sqlite" || dbType === "mssql")
+								? field.defaultValue
+									? 1
+									: 0
+								: field.defaultValue,
+						);
 					}
 					return col;
 				});
@@ -506,7 +1141,11 @@ export async function getMigrations(config: CinaAuthOptions) {
 				});
 
 			for (const [fieldName, field] of Object.entries(table.fields)) {
-				const type = getType(field, fieldName);
+				const type = getType(
+					field,
+					fieldName,
+					getTableIndexStringLength(table.table, fieldName),
+				);
 				dbT = dbT.addColumn(fieldName, type, (col) => {
 					col = field.required !== false ? col.notNull() : col;
 					if (field.references) {
@@ -539,7 +1178,9 @@ export async function getMigrations(config: CinaAuthOptions) {
 
 				if (field.index && !field.unique) {
 					const builder = db.schema
-						.createIndex(`${table.table}_${fieldName}_idx`)
+						.createIndex(
+							getDatabaseFieldIndexName(table.table, fieldName, false),
+						)
 						.on(table.table)
 						.columns([fieldName]);
 					deferredIndexes.push(builder);
@@ -549,18 +1190,43 @@ export async function getMigrations(config: CinaAuthOptions) {
 		}
 	}
 
+	for (const { table, index, name } of toBeAddedIndexes) {
+		let builder = db.schema
+			.createIndex(name)
+			.on(table)
+			.columns([...index.columns]);
+		if (index.unique) {
+			builder = builder.unique();
+		}
+		deferredIndexes.push(builder);
+	}
+
 	for (const index of deferredIndexes) {
 		migrations.push(index);
 	}
 
 	async function runMigrations() {
-		for (const migration of migrations) {
-			await migration.execute();
+		try {
+			for (const migration of migrations) {
+				await migration.execute();
+			}
+		} finally {
+			if (migrations.length && config.database) {
+				invalidateSchemaChecks(config.database);
+			}
 		}
 	}
 	async function compileMigrations() {
 		const compiled = migrations.map((m) => m.compile().sql);
 		return compiled.join(";\n\n") + ";";
 	}
-	return { toBeCreated, toBeAdded, runMigrations, compileMigrations };
+	return {
+		toBeCreated,
+		toBeAdded,
+		toBeAddedIndexes,
+		unsafeChanges,
+		schemaProblems,
+		runMigrations,
+		compileMigrations,
+	};
 }

@@ -574,8 +574,7 @@ export function SecurityCenter({
 			`account:${account.id}`,
 			async () => {
 				const { error } = await authClient.unlinkAccount({
-					providerId: account.providerId,
-					accountId: account.accountId,
+					accountId: account.id,
 				});
 				if (error) throw error;
 				setAccounts((current) =>
@@ -594,7 +593,6 @@ export function SecurityCenter({
 					await getSecurityProviderLinkURL(
 						{
 							linkSocial: authClient.linkSocial,
-							oauth2: { link: authClient.oauth2.link },
 						},
 						provider,
 					),

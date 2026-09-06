@@ -19,21 +19,21 @@ import {
 export * from "@cinaauth/core/db/adapter";
 
 export type {
-	AdapterFactoryOptions,
 	AdapterFactory,
-	AdapterTestDebugLogs,
 	AdapterFactoryConfig,
-	CustomAdapter,
 	AdapterFactoryCustomizeAdapterCreator,
+	AdapterFactoryOptions,
+	AdapterTestDebugLogs,
+	CustomAdapter,
 };
 export {
 	createAdapterFactory,
 	initGetDefaultFieldName,
 	initGetDefaultModelName,
-	initGetFieldName,
-	initGetModelName,
 	initGetFieldAttributes,
+	initGetFieldName,
 	initGetIdField,
+	initGetModelName,
 };
 
 /**

@@ -2,7 +2,7 @@ import { base64Url } from "@better-auth/utils/base64";
 import { createHash } from "@better-auth/utils/hash";
 import type { CinaAuthPlugin, HookEndpointContext } from "@cinaauth/core";
 import { createAuthMiddleware } from "@cinaauth/core/api";
-import { getIp } from "@cinaauth/core/utils/ip";
+import { getIP } from "@cinaauth/core/utils/ip";
 import { CinaAuthError } from "cinaauth";
 import { APIError } from "cinaauth/api";
 import { generateRandomString } from "cinaauth/crypto";
@@ -246,7 +246,7 @@ export function apiKey(
 								userId: apiKey.referenceId,
 								userAgent: ctx.request?.headers.get("user-agent") ?? null,
 								ipAddress: ctx.request
-									? getIp(ctx.request, ctx.context.options)
+									? getIP(ctx.request, ctx.context.options)
 									: null,
 								createdAt: new Date(),
 								updatedAt: new Date(),

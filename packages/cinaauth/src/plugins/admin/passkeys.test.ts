@@ -79,10 +79,13 @@ async function passkeyAdminInstance(
 	);
 	const { headers, user: operator } = await instance.signInWithTestUser();
 	const context = await instance.auth.$context;
-	const target = await context.internalAdapter.createUser({
-		name: "Target User",
-		email: `target-${crypto.randomUUID()}@example.com`,
-	});
+	const target = await context.internalAdapter.createUser(
+		{
+			name: "Target User",
+			email: `target-${crypto.randomUUID()}@example.com`,
+		},
+		{ method: "admin" },
+	);
 	const targetPasskey = await context.adapter.create<
 		Omit<StoredPasskey, "id">,
 		StoredPasskey

@@ -8,6 +8,7 @@
   "devDependencies": {
     "@cinaauth/core": "workspace:*",
     "@cinaauth/drizzle-adapter": "workspace:*",
+    "@cinaauth/scim": "workspace:*",
     "@cinaauth/test-utils": "workspace:*",
     "cinaauth": "workspace:*"
   }

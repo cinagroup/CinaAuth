@@ -300,6 +300,9 @@ export const router = <Option extends CinaAuthOptions>(
 				return new Response("Not Found", { status: 404 });
 			}
 
+			const pendingSchemaCheck = ctx.checkSchema?.();
+			if (pendingSchemaCheck) await pendingSchemaCheck;
+
 			let currentRequest = req;
 
 			const rateLimitResponse = await onRequestRateLimit(currentRequest, ctx);
@@ -406,15 +409,16 @@ export {
 	type AuthMiddleware,
 	createAuthEndpoint,
 	createAuthMiddleware,
+	NO_STORE_HEADERS,
 	optionsMiddleware,
 } from "@cinaauth/core/api";
 export { APIError } from "@cinaauth/core/error";
-export { getIp } from "@cinaauth/core/utils/ip";
+export { getIP } from "@cinaauth/core/utils/ip";
 export { isAPIError } from "../utils/is-api-error";
 export { type DispatchContext, dispatchAuthEndpoint } from "./dispatch";
 export * from "./middlewares";
 export * from "./routes";
-export { getOAuthState } from "./state/oauth";
+export { addOAuthServerContext, getOAuthState } from "./state/oauth";
 export {
 	hasPendingAuthenticationGate,
 	markAuthenticationGatePending,

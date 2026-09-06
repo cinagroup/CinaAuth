@@ -1,4 +1,5 @@
 import {
+	ADMIN_OIDC_CLIENT_ID,
 	ENTITLEMENT_FEATURES,
 	ENTITLEMENT_LIMITS,
 	OIDC_DEMO_CLIENT_ID,
@@ -184,6 +185,63 @@ describe("authoritative Admin role permissions", () => {
 });
 
 describe("OIDC signing and social provider configuration", () => {
+	it("authorizes canonical 1.7 clients while rejecting inconsistent legacy flags", async () => {
+		const plugin = createAuthPlugins(makeOriginEnv()).find(
+			(candidate) => candidate.id === "oauth-provider",
+		);
+		const options = plugin?.options as unknown as {
+			authorizeClient(input: {
+				client: {
+					clientId: string;
+					tokenEndpointAuthMethod?: string;
+					requirePKCE: boolean;
+					disabled: boolean;
+					public?: boolean;
+				};
+			}): boolean | Promise<boolean>;
+		};
+		for (const clientId of [ADMIN_OIDC_CLIENT_ID, OIDC_DEMO_CLIENT_ID]) {
+			const isPublic = clientId === OIDC_DEMO_CLIENT_ID;
+			const client = {
+				clientId,
+				tokenEndpointAuthMethod: isPublic ? "none" : "client_secret_basic",
+				requirePKCE: true,
+				disabled: false,
+			};
+			expect(await options.authorizeClient({ client })).toBe(true);
+			expect(
+				await options.authorizeClient({
+					client: { ...client, public: isPublic },
+				}),
+			).toBe(true);
+			expect(
+				await options.authorizeClient({
+					client: { ...client, public: !isPublic },
+				}),
+			).toBe(false);
+			expect(
+				await options.authorizeClient({
+					client: { ...client, requirePKCE: false },
+				}),
+			).toBe(false);
+			expect(
+				await options.authorizeClient({
+					client: { ...client, disabled: true },
+				}),
+			).toBe(false);
+			for (const method of [
+				undefined,
+				"unknown",
+				isPublic ? "client_secret_basic" : "none",
+			]) {
+				expect(
+					await options.authorizeClient({
+						client: { ...client, tokenEndpointAuthMethod: method },
+					}),
+				).toBe(false);
+			}
+		}
+	});
 	it("uses redirect OAuth for Google without registering One Tap", () => {
 		const plugins = createAuthPlugins(
 			makeOriginEnv({
@@ -374,7 +432,9 @@ describe("organization member entitlement chokepoints", () => {
 	it("wraps both SSO and SCIM automatic membership provisioning", () => {
 		const plugins = createAuthPlugins(makeOriginEnv());
 		const ssoPlugin = plugins.find((candidate) => candidate.id === "sso");
-		const scimPlugin = plugins.find((candidate) => candidate.id === "scim");
+		const scimPlugin = plugins.find(
+			(candidate) => candidate.id === "scim-legacy",
+		);
 
 		expect(ssoPlugin?.options).toMatchObject({
 			organizationProvisioning: {
@@ -400,14 +460,14 @@ describe("SIWE production gate", () => {
 	it("does not register SIWE without a complete enabled configuration", () => {
 		expect(
 			createAuthPlugins(makeOriginEnv()).find(
-				(candidate) => candidate.id === "siwe",
+				(candidate) => candidate.id === "siwe-v2",
 			),
 		).toBeUndefined();
 	});
 
 	it("passes the strict RP, chain, and stage-two account-creation policy to SIWE v2", () => {
 		const plugin = createAuthPlugins(enabledSiweEnv).find(
-			(candidate) => candidate.id === "siwe",
+			(candidate) => candidate.id === "siwe-v2",
 		);
 
 		expect(plugin?.options).toMatchObject({
@@ -430,7 +490,7 @@ describe("SIWE production gate", () => {
 				siweLoginEnabled: false,
 				googleOneTapEnabled: false,
 			},
-		}).find((candidate) => candidate.id === "siwe");
+		}).find((candidate) => candidate.id === "siwe-v2");
 
 		expect(plugin).toBeDefined();
 	});
@@ -461,7 +521,7 @@ describe("SIWE production gate", () => {
 
 	it("verifies a real EIP-191 personal signature for the recovered EOA", async () => {
 		const plugin = createAuthPlugins(enabledSiweEnv).find(
-			(candidate) => candidate.id === "siwe",
+			(candidate) => candidate.id === "siwe-v2",
 		);
 		if (!plugin || !("verifyMessage" in plugin.options)) {
 			throw new Error("Expected the enabled SIWE verifier");

@@ -60,6 +60,7 @@ export type ReactAuthClient<Option extends CinaAuthClientOptions> =
 	UnionToIntersection<InferResolvedHooks<Option>> &
 		InferClientAPI<Option> &
 		InferActions<Option> & {
+			hydrateSession(session: NonNullable<ClientSession<Option>> | null): void;
 			useSession: () => {
 				data: ClientSession<Option>;
 				isPending: boolean;
@@ -84,6 +85,7 @@ export function createAuthClient<Option extends CinaAuthClientOptions>(
 		pluginPathMethods,
 		pluginsActions,
 		pluginsAtoms,
+		hydrateSession,
 		$fetch,
 		$store,
 		atomListeners,
@@ -96,6 +98,7 @@ export function createAuthClient<Option extends CinaAuthClientOptions>(
 	const routes = {
 		...pluginsActions,
 		...resolvedHooks,
+		hydrateSession,
 		$fetch,
 		$store,
 	};
@@ -110,8 +113,8 @@ export function createAuthClient<Option extends CinaAuthClientOptions>(
 	return proxy as ReactAuthClient<Option>;
 }
 
-export { useStore };
 export type * from "@better-fetch/fetch";
 export type * from "nanostores";
 export type * from "../../types/helper";
 export type { UnionToIntersection } from "../../types/helper";
+export { useStore };

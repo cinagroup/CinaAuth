@@ -37,7 +37,7 @@ describe("security provider link actions", () => {
 		expect(client.oauth2.link).not.toHaveBeenCalled();
 	});
 
-	it("uses oauth2.link for a Generic OAuth provider", async () => {
+	it("uses the unified linkSocial API for a Generic OAuth provider", async () => {
 		const client = makeClient();
 
 		await expect(
@@ -45,25 +45,24 @@ describe("security provider link actions", () => {
 				id: "github-enterprise",
 				type: "generic-oauth",
 			}),
-		).resolves.toBe("https://generic.example.com/authorize");
+		).resolves.toBe("https://social.example.com/authorize");
 
-		expect(client.oauth2.link).toHaveBeenCalledWith({
-			providerId: "github-enterprise",
+		expect(client.linkSocial).toHaveBeenCalledWith({
+			provider: "github-enterprise",
 			callbackURL: "/dashboard/security",
 			errorCallbackURL: "/dashboard/security?link=failed",
+			disableRedirect: true,
 		});
-		expect(client.linkSocial).not.toHaveBeenCalled();
+		expect(client.oauth2.link).not.toHaveBeenCalled();
 	});
 
 	it("fails closed when the provider does not return an authorization URL", async () => {
 		const client: ReturnType<typeof makeClient> = {
 			...makeClient(),
-			oauth2: {
-				link: vi.fn(async () => ({
-					data: { url: "" },
-					error: null,
-				})),
-			},
+			linkSocial: vi.fn(async () => ({
+				data: { url: "" },
+				error: null,
+			})),
 		};
 
 		await expect(

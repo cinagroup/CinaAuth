@@ -10,7 +10,7 @@ npm install @cinaauth/redis-storage
 
 ## Documentation
 
-For full documentation, visit [cinagroup.com/docs/storage](https://www.cinagroup.com/docs/storage).
+For setup and usage documentation, see [Redis Storage](https://www.cinagroup.com/docs/concepts/database#redis-storage).
 
 ## License
 

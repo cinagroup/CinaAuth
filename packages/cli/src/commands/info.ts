@@ -5,7 +5,36 @@ import path from "node:path";
 import chalk from "chalk";
 import { Command } from "commander";
 import { getConfig } from "../utils/get-config";
-import { getPackageInfo } from "../utils/get-package-info";
+import {
+	getInstalledPackageVersion,
+	getPackageInfo,
+} from "../utils/get-package-info";
+
+type ReportedDependency = {
+	name: string;
+	packageName: string;
+};
+
+function resolveReportedDependencies(
+	projectRoot: string,
+	dependencies: Record<string, string | undefined>,
+	reportedDependencies: readonly ReportedDependency[],
+) {
+	return reportedDependencies.flatMap(({ name, packageName }) => {
+		const declaredVersion = dependencies[packageName];
+		if (!declaredVersion) {
+			return [];
+		}
+		return [
+			{
+				name,
+				version:
+					getInstalledPackageVersion(packageName, projectRoot) ??
+					declaredVersion,
+			},
+		];
+	});
+}
 
 function getSystemInfo() {
 	const platform = os.platform();
@@ -73,25 +102,21 @@ function getFrameworkInfo(projectRoot: string) {
 			...packageJson.devDependencies,
 		};
 
-		const frameworks: Record<string, string | undefined> = {
-			next: deps["next"],
-			react: deps["react"],
-			vue: deps["vue"],
-			nuxt: deps["nuxt"],
-			svelte: deps["svelte"],
-			"@sveltejs/kit": deps["@sveltejs/kit"],
-			express: deps["express"],
-			fastify: deps["fastify"],
-			hono: deps["hono"],
-			"react-router": deps["react-router"],
-			astro: deps["astro"],
-			solid: deps["solid-js"],
-			qwik: deps["@builder.io/qwik"],
-		};
-
-		const installedFrameworks = Object.entries(frameworks)
-			.filter(([_, version]) => version)
-			.map(([name, version]) => ({ name, version }));
+		const installedFrameworks = resolveReportedDependencies(projectRoot, deps, [
+			{ name: "next", packageName: "next" },
+			{ name: "react", packageName: "react" },
+			{ name: "vue", packageName: "vue" },
+			{ name: "nuxt", packageName: "nuxt" },
+			{ name: "svelte", packageName: "svelte" },
+			{ name: "@sveltejs/kit", packageName: "@sveltejs/kit" },
+			{ name: "express", packageName: "express" },
+			{ name: "fastify", packageName: "fastify" },
+			{ name: "hono", packageName: "hono" },
+			{ name: "react-router", packageName: "react-router" },
+			{ name: "astro", packageName: "astro" },
+			{ name: "solid", packageName: "solid-js" },
+			{ name: "qwik", packageName: "@builder.io/qwik" },
+		]);
 
 		return installedFrameworks.length > 0 ? installedFrameworks : null;
 	} catch {
@@ -113,25 +138,30 @@ function getDatabaseInfo(projectRoot: string) {
 			...packageJson.devDependencies,
 		};
 
-		const databases: Record<string, string | undefined> = {
-			"better-sqlite3": deps["better-sqlite3"],
-			"@libsql/client": deps["@libsql/client"],
-			"@libsql/kysely-libsql": deps["@libsql/kysely-libsql"],
-			mysql2: deps["mysql2"],
-			pg: deps["pg"],
-			postgres: deps["postgres"],
-			"@prisma/client": deps["@prisma/client"],
-			drizzle: deps["drizzle-orm"],
-			kysely: deps["kysely"],
-			mongodb: deps["mongodb"],
-			"@neondatabase/serverless": deps["@neondatabase/serverless"],
-			"@vercel/postgres": deps["@vercel/postgres"],
-			"@planetscale/database": deps["@planetscale/database"],
-		};
-
-		const installedDatabases = Object.entries(databases)
-			.filter(([_, version]) => version)
-			.map(([name, version]) => ({ name, version }));
+		const installedDatabases = resolveReportedDependencies(projectRoot, deps, [
+			{ name: "better-sqlite3", packageName: "better-sqlite3" },
+			{ name: "@libsql/client", packageName: "@libsql/client" },
+			{
+				name: "@libsql/kysely-libsql",
+				packageName: "@libsql/kysely-libsql",
+			},
+			{ name: "mysql2", packageName: "mysql2" },
+			{ name: "pg", packageName: "pg" },
+			{ name: "postgres", packageName: "postgres" },
+			{ name: "@prisma/client", packageName: "@prisma/client" },
+			{ name: "drizzle", packageName: "drizzle-orm" },
+			{ name: "kysely", packageName: "kysely" },
+			{ name: "mongodb", packageName: "mongodb" },
+			{
+				name: "@neondatabase/serverless",
+				packageName: "@neondatabase/serverless",
+			},
+			{ name: "@vercel/postgres", packageName: "@vercel/postgres" },
+			{
+				name: "@planetscale/database",
+				packageName: "@planetscale/database",
+			},
+		]);
 
 		return installedDatabases.length > 0 ? installedDatabases : null;
 	} catch {
@@ -316,6 +346,20 @@ async function getCinaAuthInfo(
 	configPath?: string,
 	suppressLogs = false,
 ) {
+	let CinaAuthVersion = "Unknown";
+	try {
+		const packageInfo = getPackageInfo(projectRoot);
+		const declaredVersion =
+			packageInfo.dependencies?.["cinaauth"] ||
+			packageInfo.devDependencies?.["cinaauth"] ||
+			packageInfo.peerDependencies?.["cinaauth"] ||
+			packageInfo.optionalDependencies?.["cinaauth"];
+		if (declaredVersion) {
+			CinaAuthVersion =
+				getInstalledPackageVersion("cinaauth", projectRoot) ?? declaredVersion;
+		}
+	} catch {}
+
 	try {
 		// Temporarily suppress console output if needed
 		const originalLog = console.log;
@@ -334,14 +378,6 @@ async function getCinaAuthInfo(
 				configPath,
 				shouldThrowOnError: true,
 			});
-			const packageInfo = await getPackageInfo();
-			const CinaAuthVersion =
-				packageInfo.dependencies?.["cinaauth"] ||
-				packageInfo.devDependencies?.["cinaauth"] ||
-				packageInfo.peerDependencies?.["cinaauth"] ||
-				packageInfo.optionalDependencies?.["cinaauth"] ||
-				"Unknown";
-
 			return {
 				version: CinaAuthVersion,
 				config: sanitizeCinaAuthConfig(config),
@@ -356,7 +392,7 @@ async function getCinaAuthInfo(
 		}
 	} catch (error) {
 		return {
-			version: "Unknown",
+			version: CinaAuthVersion,
 			config: null,
 			error:
 				error instanceof Error
@@ -489,14 +525,12 @@ export const info = new Command("info")
 		}
 
 		console.log(chalk.bold.white("\n🔐 CinaAuth:"));
+		console.log(`  ${chalk.cyan("Version")}: ${CinaAuthInfo.version}`);
 		if (CinaAuthInfo.error) {
 			console.log(`  ${chalk.red("Error:")} ${CinaAuthInfo.error}`);
-		} else {
-			console.log(`  ${chalk.cyan("Version")}: ${CinaAuthInfo.version}`);
-			if (CinaAuthInfo.config) {
-				console.log(`  ${chalk.cyan("Configuration")}:`);
-				console.log(formatOutput(CinaAuthInfo.config, 4));
-			}
+		} else if (CinaAuthInfo.config) {
+			console.log(`  ${chalk.cyan("Configuration")}:`);
+			console.log(formatOutput(CinaAuthInfo.config, 4));
 		}
 
 		console.log(chalk.gray("\n" + "=".repeat(50)));

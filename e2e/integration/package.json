@@ -2,13 +2,23 @@
   "name": "@cinaauth-test/integration",
   "private": true,
   "scripts": {
-    "e2e:integration": "playwright test"
+    "e2e:integration": "pnpm --dir nuxt exec nuxt prepare && playwright test"
   },
   "dependencies": {
+    "@cinaauth/cimd": "workspace:*",
+    "@cinaauth/electron": "workspace:*",
+    "@cinaauth/kysely-adapter": "workspace:*",
+    "@cinaauth/mcp": "workspace:*",
     "@cinaauth/oauth-provider": "workspace:*",
+    "@cinaauth/passkey": "workspace:*",
+    "@cinaauth/scim": "workspace:*",
+    "@cinaauth/sso": "workspace:*",
+    "@cinaauth/stripe": "workspace:*",
     "cinaauth": "workspace:*"
   },
   "devDependencies": {
-    "@playwright/test": "^1.58.2"
+    "@cinaauth-test/test-utils": "workspace:*",
+    "@playwright/test": "~1.58.2",
+    "jose": "^6.2.3"
   }
 }

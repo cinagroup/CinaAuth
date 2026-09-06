@@ -2,6 +2,7 @@ export { getAuthTables } from "./get-tables";
 export type { CinaAuthPluginDBSchema } from "./plugin";
 export {
 	type Account,
+	type AccountKey,
 	accountSchema,
 	type BaseAccount,
 } from "./schema/account";
@@ -29,6 +30,7 @@ export type {
 	DBFieldAttributeConfig,
 	DBFieldType,
 	DBPrimitive,
+	DBTableIndex,
 	InferDBFieldInput,
 	InferDBFieldOutput,
 	InferDBFieldsFromOptions,

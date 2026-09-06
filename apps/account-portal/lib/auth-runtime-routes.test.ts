@@ -7,8 +7,8 @@ const mocks = vi.hoisted(() => ({
 	mcpHandler: vi.fn(),
 }));
 
-vi.mock("@cinaauth/oauth-provider", () => ({
-	mcpHandler: mocks.mcpHandler,
+vi.mock("@cinaauth/mcp", () => ({
+	createMcpProtectedRequestHandler: mocks.mcpHandler,
 }));
 vi.mock("mcp-handler", () => ({
 	createMcpHandler: mocks.createMcpHandler,

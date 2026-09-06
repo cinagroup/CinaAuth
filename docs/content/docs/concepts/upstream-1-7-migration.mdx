@@ -1,0 +1,50 @@
+---
+title: CinaAuth 1.7 migration
+description: Upstream 1.7 APIs and compatibility entries for existing CinaAuth deployments.
+---
+
+This release incorporates the upstream Better Auth 1.7.3 updates. CinaAuth keeps its package names, production authorization hooks, session deletion safeguards, and private JWKS transport support.
+
+## SCIM
+
+The default `@cinaauth/scim` entry now implements the upstream 1.7 SCIM configuration, groups, and identity lifecycle. Review the [SCIM documentation](/docs/plugins/scim) and generate the corresponding schema migration before adopting it.
+
+Existing CinaAuth deployments using provider ownership, runtime authorization, and the established `scimProvider` schema can continue with the compatibility entry:
+
+```ts
+import { scim } from "@cinaauth/scim/legacy";
+import { scimClient } from "@cinaauth/scim/legacy/client";
+```
+
+The compatibility plugin ID is `scim-legacy`. Its existing HTTP routes and database model names remain unchanged. Configure one SCIM implementation per auth instance. Moving to the default entry requires an explicit configuration and data migration; changing only the import is insufficient.
+
+## SIWE challenges and wallet management
+
+The default `cinaauth/plugins/siwe` entry follows the upstream SIWE protocol. Existing CinaAuth clients using purpose-bound challenges, wallet linking, or primary-wallet management must use the matching compatibility server and client:
+
+```ts
+import { siwe } from "cinaauth/plugins/siwe-v2";
+import { siweClient } from "cinaauth/plugins/siwe-v2/client";
+```
+
+The plugin ID is `siwe-v2`. Existing challenge paths, wallet schema, and `siwe` account provider identifiers remain unchanged. See [SIWE challenge compatibility](/docs/plugins/siwe-v2) for its options. Configure one SIWE implementation per auth instance and keep the server and client protocols aligned.
+
+The production Auth Worker and Account Portal use these compatibility entries. This release does not enable the production SIWE rollout flag.
+
+## OAuth resource verification
+
+Use `verifyBearerToken` for Bearer tokens or `verifyAccessTokenRequest` for request verification, including DPoP. Required scopes are supplied as `requiredScopes`. CinaAuth also supports a caller-owned `jwksFetch` loader with a stable `jwksCacheKey`, so resource servers can retrieve keys through a private transport such as a Cloudflare Service Binding.
+
+OAuth query state is carried in the server-only OAuth context. Registration proof and post-login continuation remain bound to the signed authorization request.
+
+MCP resource servers use `createMcpProtectedRequestHandler` from `@cinaauth/mcp`. This entry supports the same private JWKS loader and cache identity.
+
+## Account management and rate limits
+
+Both built-in and Generic OAuth providers now use `signIn.social` and `linkSocial`, with the provider configuration ID in `provider`. Account-management APIs such as `unlinkAccount` take the local account record's `id` as `accountId`, not the external provider's subject identifier.
+
+Custom rate-limit storage implements atomic `consume` operations. The production Durable Object adapter preserves the upstream allow/block decision and retry interval through this interface.
+
+## Production rollout
+
+Run the repository type checks, package builds, and deployment contract tests before deployment. The central Cloudflare workflow retains the restore rehearsal, active backup, secret inventory, and migration checks. The read-only **Audit production backups** workflow lists the current successful backup IDs that can be supplied to that deployment workflow.

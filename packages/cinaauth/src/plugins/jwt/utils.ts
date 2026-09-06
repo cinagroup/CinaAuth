@@ -92,16 +92,28 @@ export async function createJwk(
 	const { publicWebKey, privateWebKey, alg, cfg } =
 		await generateExportedKeyPair(options);
 
+	// Resolve the curve for persistence. Two sources, in priority order:
+	//   1. Explicit `keyPairConfig.crv` (e.g., Ed25519 for EdDSA).
+	//   2. The curve jose derived from the algorithm at generation
+	//      (e.g., P-256 for ES256, P-521 for ES512). Reading it off the
+	//      exported JWK keeps `jwks.crv` populated for EC keys whose
+	//      curve is implicit in the alg — without this, `crv` was null
+	//      for everything except EdDSA, defeating the audience-pinning
+	//      tripwire that depends on the column.
+	const explicitCrv =
+		cfg && "crv" in cfg ? (cfg as { crv: string }).crv : undefined;
+	const derivedCrv =
+		typeof (publicWebKey as { crv?: unknown }).crv === "string"
+			? (publicWebKey as { crv: string }).crv
+			: undefined;
+	const crv = explicitCrv ?? derivedCrv;
+
 	const stringifiedPrivateWebKey = JSON.stringify(privateWebKey);
 	const privateKeyEncryptionEnabled =
 		!options?.jwks?.disablePrivateKeyEncryption;
 	const jwk: Omit<Jwk, "id"> = {
 		alg,
-		...(cfg && "crv" in cfg
-			? {
-					crv: (cfg as { crv: (typeof jwk)["crv"] }).crv,
-				}
-			: {}),
+		...(crv ? { crv: crv as (typeof jwk)["crv"] } : {}),
 		publicKey: JSON.stringify(publicWebKey),
 		privateKey: privateKeyEncryptionEnabled
 			? JSON.stringify(
@@ -135,12 +147,16 @@ async function resolveCurrentJwk(
 	const adapter = getJwksAdapter(ctx.context.adapter, options);
 	const keys = preloadedKeys ?? (await adapter.getAllKeys(ctx)) ?? [];
 	const now = new Date();
-	const configuredAlgorithm = options?.jwks?.keyPairConfig?.alg;
+	const configuredAlgorithm = options?.jwks?.keyPairConfig?.alg ?? "EdDSA";
+	const allowedAlgorithms = new Set([
+		configuredAlgorithm,
+		...(options?.jwks?.keyPairConfigs?.map((config) => config.alg) ?? []),
+	]);
 	let resolvedKeys = [...keys];
-	if (configuredAlgorithm) {
+	if (options?.jwks?.keyPairConfig) {
 		const incompatibleKeys = keys.filter(
 			(key) =>
-				getJwkAlgorithm(key) !== configuredAlgorithm &&
+				!allowedAlgorithms.has(getJwkAlgorithm(key) ?? key.alg!) &&
 				(!key.expiresAt || key.expiresAt > now),
 		);
 		const expiredKeysById = new Map(
@@ -162,11 +178,7 @@ async function resolveCurrentJwk(
 		resolvedKeys = keys.map((key) => expiredKeysById.get(key.id) ?? key);
 	}
 	let currentKey = resolvedKeys
-		.filter(
-			(candidate) =>
-				configuredAlgorithm === undefined ||
-				getJwkAlgorithm(candidate) === configuredAlgorithm,
-		)
+		.filter((candidate) => getJwkAlgorithm(candidate) === configuredAlgorithm)
 		.slice()
 		.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
 	if (!currentKey || (currentKey.expiresAt && currentKey.expiresAt < now)) {

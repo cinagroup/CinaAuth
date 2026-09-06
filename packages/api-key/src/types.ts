@@ -4,6 +4,7 @@ import type {
 	HookEndpointContext,
 	LiteralString,
 } from "@cinaauth/core";
+import type { SecondaryStorage } from "@cinaauth/core/db";
 import type { Statements } from "cinaauth/plugins/access";
 import type { InferOptionSchema } from "cinaauth/types";
 import type { apiKeySchema } from "./schema";
@@ -257,26 +258,7 @@ export interface ApiKeyConfigurationOptions {
 	 * Useful when you want to use a different storage backend specifically for API keys,
 	 * or when you need custom logic for storage operations.
 	 */
-	customStorage?:
-		| {
-				/**
-				 * Get a value from storage
-				 */
-				get: (key: string) => Awaitable<unknown>;
-				/**
-				 * Set a value in storage
-				 */
-				set: (
-					key: string,
-					value: string,
-					ttl?: number | undefined,
-				) => Awaitable<void | null | unknown>;
-				/**
-				 * Delete a value from storage
-				 */
-				delete: (key: string) => Awaitable<void | null | string>;
-		  }
-		| undefined;
+	customStorage?: SecondaryStorage | undefined;
 	/**
 	 * Defer non-critical updates (rate limiting counters, timestamps, remaining count)
 	 * to run after the response is sent using the global `advanced.backgroundTasks` handler.

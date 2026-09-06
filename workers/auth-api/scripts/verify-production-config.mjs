@@ -817,7 +817,7 @@ const siweWalletFile = join(
 	"cinaauth",
 	"src",
 	"plugins",
-	"siwe",
+	"siwe-v2",
 	"wallets.ts",
 );
 const siweProofFile = join(
@@ -826,7 +826,7 @@ const siweProofFile = join(
 	"cinaauth",
 	"src",
 	"plugins",
-	"siwe",
+	"siwe-v2",
 	"verify-proof.ts",
 );
 const privacyCenterPluginFile = join(
@@ -1840,7 +1840,7 @@ checkIncludesAll(
 		"messages.copyApiKeyNow",
 		"messages.personalApiKeysDescription",
 		"authClient.unlinkAccount",
-		"authClient.oauth2.link",
+		"authClient.linkSocial",
 		'authClient.$fetch("/siwe/list-wallets"',
 		"cinaAuthSiweProtocolClient",
 		"completeWalletProof",
@@ -2198,15 +2198,16 @@ checkIncludesAll(
 checkIncludesAll(
 	oauthRegisterTs,
 	[
-		"browserRedirects",
-		'client.type === "web"',
-		'client.type === "user-agent-based"',
-		'protocol !== "https:"',
-		'protocol !== "http:"',
-		"A web client redirect URI must use HTTPS",
+		"validateClientRedirectUri(",
+		'applicationType === "web"',
+		"!isHttps || isRedirectLoopback",
+		"web clients require https redirect URIs on non-loopback hosts",
+		"!isAllowedNativeHttpLoopback",
+		"FORBIDDEN_NATIVE_REDIRECT_SCHEMES.has(url.protocol)",
+		"!isReverseDomainPrivateUseRedirectUri(url)",
 	],
 	oauthRegisterFile,
-	"the OAuth server must reserve custom-scheme callbacks for native public clients rather than trusting the console",
+	"the OAuth server must enforce web HTTPS and restrict native callbacks to valid reverse-domain schemes or exact HTTP loopback hosts",
 );
 checkIncludesAll(
 	pluginsTs,
