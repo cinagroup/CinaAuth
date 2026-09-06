@@ -1,3 +1,4 @@
+import { isReverseDomainPrivateUseRedirectUri } from "@cinaauth/core/utils/redirect-uri";
 import type { Locale } from "./i18n";
 
 export const DEVELOPER_OAUTH_SCOPES = [
@@ -19,13 +20,15 @@ type OAuthClientSource = {
 	token_endpoint_auth_method?:
 		| "none"
 		| "client_secret_basic"
-		| "client_secret_post";
+		| "client_secret_post"
+		| "private_key_jwt";
 	grant_types?: Array<
 		"authorization_code" | "client_credentials" | "refresh_token"
 	>;
 	response_types?: "code"[];
 	public?: boolean;
 	type?: "web" | "native" | "user-agent-based";
+	application_type?: "web" | "native";
 	disabled?: boolean;
 };
 
@@ -48,7 +51,8 @@ export type DeveloperOAuthClient = {
 	tokenEndpointAuthMethod:
 		| "none"
 		| "client_secret_basic"
-		| "client_secret_post";
+		| "client_secret_post"
+		| "private_key_jwt";
 	grantTypes: Array<
 		"authorization_code" | "client_credentials" | "refresh_token"
 	>;
@@ -93,11 +97,13 @@ const BLOCKED_NATIVE_SCHEMES = new Set([
 	"vbscript:",
 ]);
 
-const isLoopbackHttp = (url: URL) =>
-	url.protocol === "http:" && LOOPBACK_HOSTS.has(url.hostname);
+const isLoopbackHttp = (uri: string, url: URL) =>
+	url.protocol === "http:" &&
+	LOOPBACK_HOSTS.has(url.hostname) &&
+	/^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/|$)/i.test(uri);
 
 const isNativeCustomScheme = (url: URL) =>
-	/^[a-z][a-z0-9+.-]*:$/.test(url.protocol) &&
+	isReverseDomainPrivateUseRedirectUri(url) &&
 	!BLOCKED_NATIVE_SCHEMES.has(url.protocol);
 
 export const parseDeveloperRedirectUris = (
@@ -134,25 +140,29 @@ export const parseDeveloperRedirectUris = (
 			return { uris, error: `Invalid redirect URI: ${uri}` };
 		}
 
-		if (url.username || url.password || url.hash) {
+		if (url.username || url.password || uri.includes("#")) {
 			return {
 				uris,
 				error: "Redirect URIs cannot contain credentials or URL fragments.",
 			};
 		}
 
-		const secureWebUri = url.protocol === "https:" || isLoopbackHttp(url);
+		const loopback =
+			LOOPBACK_HOSTS.has(url.hostname) ||
+			/^127\./.test(url.hostname) ||
+			/^localhost\.+$/i.test(url.hostname);
+		const secureWebUri = url.protocol === "https:" && !loopback;
 		const allowed =
 			clientType === "web"
 				? secureWebUri
-				: secureWebUri || isNativeCustomScheme(url);
+				: secureWebUri || isLoopbackHttp(uri, url) || isNativeCustomScheme(url);
 		if (!allowed) {
 			return {
 				uris,
 				error:
 					clientType === "web"
-						? "Web callbacks require HTTPS, except loopback localhost development."
-						: "Native callbacks require HTTPS, a loopback HTTP URI, or an app-specific custom scheme.",
+						? "Web callbacks require HTTPS on a non-loopback host."
+						: "Native callbacks require non-loopback HTTPS, exact loopback HTTP, or an authority-free reverse-domain scheme.",
 			};
 		}
 	}
@@ -187,8 +197,10 @@ export const toDeveloperOAuthClient = (
 		(client.public ? "none" : "client_secret_basic"),
 	grantTypes: client.grant_types ?? ["authorization_code"],
 	responseTypes: client.response_types ?? ["code"],
-	public: client.public === true,
-	type: client.type ?? "web",
+	public: client.token_endpoint_auth_method
+		? client.token_endpoint_auth_method === "none"
+		: client.public === true,
+	type: client.application_type ?? client.type ?? "web",
 	disabled: client.disabled === true,
 });
 
@@ -205,7 +217,9 @@ export const toDeveloperOAuthConsent = (
 });
 
 export const canRotateDeveloperSecret = (client: DeveloperOAuthClient) =>
-	!client.public && client.tokenEndpointAuthMethod !== "none";
+	!client.public &&
+	(client.tokenEndpointAuthMethod === "client_secret_basic" ||
+		client.tokenEndpointAuthMethod === "client_secret_post");
 
 export const formatDeveloperDate = (value: string, locale: Locale = "en") =>
 	`${developerDateFormatters[locale].format(new Date(value))} UTC`;

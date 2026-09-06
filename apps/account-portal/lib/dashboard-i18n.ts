@@ -779,10 +779,9 @@ const englishDashboardMessages = {
 	redirectUriInvalid: "Invalid redirect URI: {uri}",
 	redirectUriCredentials:
 		"Redirect URIs cannot contain credentials or URL fragments.",
-	webCallbackHttps:
-		"Web callbacks require HTTPS, except loopback localhost development.",
+	webCallbackHttps: "Web callbacks require HTTPS on a non-loopback host.",
 	nativeCallbackInvalid:
-		"Native callbacks require HTTPS, a loopback HTTP URI, or an app-specific custom scheme.",
+		"Native callbacks require non-loopback HTTPS, exact loopback HTTP, or an authority-free reverse-domain scheme.",
 	applicationNameRequired: "Application name is required.",
 	applicationNameTooLong: "Application name must be 100 characters or less.",
 	openidScopeRequired: "OpenID Connect clients must include the openid scope.",
@@ -1593,9 +1592,9 @@ const chineseDashboardMessages = {
 	redirectUriTooLong: "每个重定向 URI 最多 2048 个字符。",
 	redirectUriInvalid: "无效的重定向 URI：{uri}",
 	redirectUriCredentials: "重定向 URI 不能包含凭据或 URL 片段。",
-	webCallbackHttps: "Web 回调必须使用 HTTPS，本机回环开发地址除外。",
+	webCallbackHttps: "Web 回调必须使用非本机回环地址的 HTTPS URI。",
 	nativeCallbackInvalid:
-		"原生回调必须使用 HTTPS、本机回环 HTTP URI 或应用专属自定义协议。",
+		"原生回调必须使用非回环 HTTPS、精确的本机回环 HTTP 地址，或不含主机部分的反向域名协议。",
 	applicationNameRequired: "必须填写应用名称。",
 	applicationNameTooLong: "应用名称最多 100 个字符。",
 	openidScopeRequired: "OpenID Connect 客户端必须包含 openid 作用域。",

@@ -25,6 +25,7 @@ declare module "@cinaauth/core" {
 	}
 }
 
+export type * from "@better-auth/agent-auth";
 export {
 	AGENT_AUTH_ERROR_CODES,
 	agentError,
@@ -32,4 +33,3 @@ export {
 	streamResult,
 	verifyAgentRequest,
 };
-export type * from "@better-auth/agent-auth";

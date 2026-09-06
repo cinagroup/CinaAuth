@@ -2177,7 +2177,7 @@ checkIncludesAll(
 		"LOOPBACK_HOSTS",
 		"url.username",
 		"url.password",
-		"url.hash",
+		'uri.includes("#")',
 		"canRotateDeveloperSecret",
 	],
 	developerConsolePolicyFile,

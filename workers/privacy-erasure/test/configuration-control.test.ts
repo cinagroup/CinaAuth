@@ -91,7 +91,13 @@ const createConfigHarness = (configKek = encryptionKey) => {
 		CINAAUTH_ERASURE_ALLOWED_HOSTS: allowedHosts,
 	} as unknown as PrivacyErasureEnv;
 	const object = new ErasureConfigDurableObject(sql.state, env);
-	return { ...sql, env, object };
+	return {
+		database: sql.database,
+		state: sql.state,
+		waitForInitialization: sql.waitForInitialization,
+		env,
+		object,
+	};
 };
 
 const targets = [

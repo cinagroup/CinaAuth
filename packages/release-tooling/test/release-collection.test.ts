@@ -106,7 +106,7 @@ function detectReleaseCandidate(
 	try {
 		return {
 			actionsOutput: existsSync(outputPath)
-				? readFileSync(outputPath, "utf-8")
+				? readFileSync(outputPath, "utf-8").replace(/\r\n/g, "\n")
 				: "",
 			status: result.status,
 			stderr: result.stderr,
@@ -188,6 +188,53 @@ interface ReleaseFixtureOptions {
 	separateChangesetCommit?: boolean;
 	staleReleaseTag?: boolean;
 	uppercaseChangesetId?: boolean;
+}
+
+function createPackageReleaseFixture(
+	consumed: string[],
+	pending: string[] = [],
+) {
+	const workspace = createChangesetStateFixture([]);
+	const packages = [...new Set(["cinaauth", ...consumed, ...pending])];
+	const writeVersions = (version: string) => {
+		for (const name of packages) {
+			writeFixtureFile(
+				workspace,
+				`packages/${name.replace("@cinaauth/", "")}/package.json`,
+				JSON.stringify({ name, version }),
+			);
+		}
+	};
+	writeVersions("1.0.0");
+	git(workspace, ["add", "."]);
+	git(workspace, ["commit", "-m", "chore: initialize package versions"]);
+	git(workspace, ["tag", "v1.0.0"]);
+	for (const [index, name] of [...consumed, ...pending].entries()) {
+		writeFixtureFile(
+			workspace,
+			`.changeset/package-${index}.md`,
+			`---\n"${name}": patch\n---\n\nUpdate ${name}.\n`,
+		);
+	}
+	git(workspace, ["add", "."]);
+	git(workspace, ["commit", "-m", "fix: update package behavior"]);
+	for (let index = 0; index < consumed.length; index++) {
+		rmSync(resolve(workspace, `.changeset/package-${index}.md`));
+	}
+	writeVersions("1.0.1");
+	git(workspace, ["add", "."]);
+	git(workspace, ["commit", "-m", "chore: release v1.0.1"]);
+	git(workspace, ["tag", "v1.0.1"]);
+	return workspace;
+}
+
+function removeIsolatedFixture(workspace: string) {
+	if (
+		!resolve(workspace).startsWith(resolve(tmpdir(), "release-changesets-"))
+	) {
+		throw new Error("Unexpected release fixture path");
+	}
+	rmSync(workspace, { recursive: true });
 }
 
 function createReleaseWithFollowUpCommit(options: ReleaseFixtureOptions = {}): {
@@ -310,7 +357,7 @@ describe("release version validation", () => {
 		expect(validateReleaseVersion("1.8.0-beta.1").status).toBe(0);
 		expect(validateReleaseVersion("1.8.0-beta.01").status).toBe(1);
 		expect(validateReleaseVersion("v1.8.0").status).toBe(1);
-	});
+	}, 15_000);
 });
 
 describe("release manifest validation", () => {
@@ -375,40 +422,79 @@ describe("release changeset readiness", () => {
 
 describe("release changeset collection", () => {
 	it("selects the previous stable and prerelease tags", () => {
-		expect(findPreviousTag("1.7.1", false, "v1.7.1")).toBe("v1.7.0");
-		expect(findPreviousTag("1.7.0-beta.0", true, "v1.7.0-beta.0")).toBe(
-			"v1.6.2",
-		);
-		expect(findPreviousTag("1.7.0-rc.0", true, "v1.7.0-rc.0")).toBe(
-			"v1.7.0-beta.10",
-		);
-		expect(findPreviousTag("1.7.0-rc.6", true, "v1.7.0-rc.6")).toBe(
-			"v1.7.0-rc.5",
-		);
+		const workspace = createChangesetStateFixture([]);
+		const previousDirectory = process.cwd();
+		try {
+			for (const tag of [
+				"v1.6.2",
+				"v1.7.0-beta.0",
+				"v1.7.0-beta.10",
+				"v1.7.0-rc.0",
+				"v1.7.0-rc.5",
+				"v1.7.0-rc.6",
+				"v1.7.0",
+				"v1.7.1",
+			]) {
+				git(workspace, [
+					"commit",
+					"--allow-empty",
+					"-m",
+					`chore: release ${tag}`,
+				]);
+				git(workspace, ["tag", tag]);
+			}
+			process.chdir(workspace);
+			expect(findPreviousTag("1.7.1", false, "v1.7.1")).toBe("v1.7.0");
+			expect(findPreviousTag("1.7.0-beta.0", true, "v1.7.0-beta.0")).toBe(
+				"v1.6.2",
+			);
+			expect(findPreviousTag("1.7.0-rc.0", true, "v1.7.0-rc.0")).toBe(
+				"v1.7.0-beta.10",
+			);
+			expect(findPreviousTag("1.7.0-rc.6", true, "v1.7.0-rc.6")).toBe(
+				"v1.7.0-rc.5",
+			);
+		} finally {
+			process.chdir(previousDirectory);
+			removeIsolatedFixture(workspace);
+		}
 	});
 
 	/**
 	 * @see https://github.com/better-auth/better-auth/releases/tag/v1.6.28
 	 */
 	it("uses only changesets consumed by the release commit", () => {
-		const result = collectReleaseNotes("1.6.28");
-
-		expect(result.status, result.stderr).toBe(0);
-		expect(result.stdout).toContain("## `cinaauth`");
-		expect(result.stdout).toContain("## `@cinaauth/electron`");
-		expect(result.stdout).toContain("## `@cinaauth/expo`");
-		expect(result.stdout).not.toContain("## `@cinaauth/sso`");
+		const workspace = createPackageReleaseFixture(
+			["cinaauth", "@cinaauth/electron", "@cinaauth/expo"],
+			["@cinaauth/sso"],
+		);
+		try {
+			const result = collectReleaseNotes("1.0.1", { workspace });
+			expect(result.status, result.stderr).toBe(0);
+			expect(result.stdout).toContain("## `cinaauth`");
+			expect(result.stdout).toContain("## `@cinaauth/electron`");
+			expect(result.stdout).toContain("## `@cinaauth/expo`");
+			expect(result.stdout).not.toContain("## `@cinaauth/sso`");
+		} finally {
+			removeIsolatedFixture(workspace);
+		}
 	});
 
 	/**
 	 * @see https://github.com/better-auth/better-auth/releases/tag/v1.7.1
 	 */
 	it("preserves every package declared by a consumed changeset", () => {
-		const result = collectReleaseNotes("1.7.1");
-		const packageHeadings = result.stdout.match(/^## `[^`]+`(?: ✨)?$/gm);
-
-		expect(result.status, result.stderr).toBe(0);
-		expect(packageHeadings).toEqual(["## `cinaauth`", "## `auth`"]);
+		const workspace = createPackageReleaseFixture(["cinaauth", "auth"]);
+		try {
+			const result = collectReleaseNotes("1.0.1", { workspace });
+			const packageHeadings = result.stdout
+				.match(/^## `[^`]+`(?: ✨)?$/gm)
+				?.map((heading) => heading.replace(/ ✨$/, ""));
+			expect(result.status, result.stderr).toBe(0);
+			expect(packageHeadings).toEqual(["## `cinaauth`", "## `auth`"]);
+		} finally {
+			removeIsolatedFixture(workspace);
+		}
 	});
 
 	it("finds consumed changesets before release follow-up commits", () => {

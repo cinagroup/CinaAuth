@@ -457,7 +457,9 @@ export const createInternalAdapter = (
 										undefined,
 									);
 								}
-								await queueCachedUserSessionDeletion(userId, sessionReferences);
+								// Preserve CinaAuth's fail-closed user-deletion cascade: a
+								// cache failure must abort before the identity is removed.
+								await deleteCachedUserSessions(userId, sessionReferences);
 							} catch (error) {
 								throw createUserDeletionSessionCascadeError(error);
 							}

@@ -49,6 +49,8 @@ jobs:
         run: |
           test "$GITHUB_REF" = "refs/heads/main" || (echo "Account Portal Phase One must run from main" && exit 1)
           test "$OPERATOR_ATTESTATION" = "DEPLOY CINAAUTH ACCOUNT PORTAL PHASE ONE" || (echo "Operator attestation does not authorize Account Portal Phase One" && exit 1)
+          # JavaScript template literals must reach Node.js unchanged.
+          # shellcheck disable=SC2016
           node -e '
             const fs = require("node:fs");
             const config = JSON.parse(fs.readFileSync(process.env.CINAAUTH_PLANNED_WORKER_CONFIG, "utf8"));
@@ -66,6 +68,8 @@ jobs:
         env:
           CINAAUTH_PLANNED_WORKER_CONFIG: ../../workers/auth-api/wrangler.json
         run: |
+          # JavaScript template literals must reach Node.js unchanged.
+          # shellcheck disable=SC2016
           node -e '
             const fs = require("node:fs");
             const config = JSON.parse(fs.readFileSync(process.env.CINAAUTH_PLANNED_WORKER_CONFIG, "utf8"));
@@ -156,6 +160,7 @@ jobs:
         run: |
           ready_file="$RUNNER_TEMP/cinaauth-ready.json"
           for attempt in $(seq 1 30); do
+            echo "Readiness check attempt $attempt"
             if curl --fail-with-body --show-error --silent \
               https://auth.cinaseek.ai/api/ready \
               -H "Authorization: Bearer $CINAAUTH_MIGRATION_TOKEN" \
@@ -202,6 +207,8 @@ jobs:
             --output "$capabilities_file" \
             https://accounts.cinaseek.ai/api/auth/capabilities
           grep -Eiq '^cache-control:.*no-store' "$headers_file" || (echo "Auth capabilities must be no-store" && exit 1)
+          # JavaScript template literals must reach Node.js unchanged.
+          # shellcheck disable=SC2016
           node -e '
             const fs = require("node:fs");
             const capabilities = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
@@ -234,6 +241,8 @@ jobs:
             --write-out '%{http_code}' \
             https://accounts.cinaseek.ai/api/build-readiness)"
           grep -Eiq '^cache-control:.*no-store' "$headers_file" || (echo "Account build readiness must be no-store" && exit 1)
+          # JavaScript template literals must reach Node.js unchanged.
+          # shellcheck disable=SC2016
           node -e '
             const fs = require("node:fs");
             const readiness = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
@@ -279,6 +288,8 @@ jobs:
             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
             --output "$domains_file" \
             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains?hostname=demo-auth.cinagroup.com"
+          # JavaScript template literals must reach Node.js unchanged.
+          # shellcheck disable=SC2016
           node -e '
             const fs = require("node:fs");
             const response = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));

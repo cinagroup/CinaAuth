@@ -65,6 +65,7 @@ jobs:
         run: |
           ready_file="$RUNNER_TEMP/cinaauth-ready.json"
           for attempt in $(seq 1 30); do
+            echo "Readiness check attempt $attempt"
             if curl --fail-with-body --show-error --silent \
               https://auth.cinaseek.ai/api/ready \
               -H "Authorization: Bearer $CINAAUTH_MIGRATION_TOKEN" \

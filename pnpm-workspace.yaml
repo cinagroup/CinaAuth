@@ -76,6 +76,11 @@ packageExtensions:
   drizzle-kit:
     peerDependencies:
       drizzle-orm: '*'
+  # The new Kit migration API requires a modern libSQL client, not the legacy
+  # 0.8 client used by the separate Kysely adapter fixture.
+  'drizzle-kit@1.0.0-rc.3':
+    dependencies:
+      '@libsql/client': 0.17.4
   'next@>=16.2.11 <17':
     peerDependencies:
       '@types/react': '>=18.2.0'

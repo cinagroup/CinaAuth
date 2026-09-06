@@ -67,6 +67,7 @@ jobs:
           CINAAUTH_OIDC_DEMO_TARGET_ORIGIN: https://oidc-demo.cinaseek.ai
         run: |
           for attempt in $(seq 1 40); do
+            echo "Readiness check attempt $attempt"
             pnpm run check:production && exit 0
             sleep 15
           done

@@ -46,7 +46,7 @@ const rejectedRedirects = [
 	{
 		component: "userinfo",
 		redirectUri: "http://user:password@localhost:51234/callback?source=cli",
-		error: "invalid_redirect",
+		error: "invalid_request",
 	},
 	{
 		component: "scheme casing",

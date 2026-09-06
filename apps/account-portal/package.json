@@ -19,6 +19,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@cinaauth/core": "workspace:*",
     "@cinaauth/api-key": "link:../../packages/api-key",
     "@cinaauth/auth-proxy": "workspace:*",
     "@cinaauth/auth-web-contract": "workspace:*",

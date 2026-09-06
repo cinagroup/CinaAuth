@@ -51,7 +51,7 @@ const { execute } = await testAdapter({
 			"sqlite",
 		);
 
-		const command = `npx drizzle-kit push --dialect=sqlite --schema=${fileName}.ts --url=./test.db`;
+		const command = `pnpm exec drizzle-kit push --dialect=sqlite --schema=${fileName}.ts --url=./test.db`;
 		console.log(`Running: ${command}`);
 		console.log(`Options:`, CinaAuthOptions);
 		try {

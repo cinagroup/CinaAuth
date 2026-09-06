@@ -100,6 +100,8 @@ const v1CoreSchema: {
 				type: "date",
 				required: true,
 				fieldName: "expiresAt",
+				// CinaAuth already shipped this index before the upstream 1.7 sync.
+				index: true,
 			},
 			token: {
 				type: "string",

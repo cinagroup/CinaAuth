@@ -56,7 +56,7 @@ function createFetch(): typeof fetch {
 				],
 				200,
 				{
-					link: '<https://api.github.test/repos/better-auth/better-auth/pulls/42/files?per_page=100&page=2>; rel="next"',
+					link: '<https://api.github.test/repos/cinaauth/cinaauth/pulls/42/files?per_page=100&page=2>; rel="next"',
 				},
 			);
 		}

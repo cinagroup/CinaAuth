@@ -128,9 +128,9 @@ const localizeDeveloperError = (error: string, messages: DashboardMessages) => {
 			messages.redirectUriTooLong,
 		"Redirect URIs cannot contain credentials or URL fragments.":
 			messages.redirectUriCredentials,
-		"Web callbacks require HTTPS, except loopback localhost development.":
+		"Web callbacks require HTTPS on a non-loopback host.":
 			messages.webCallbackHttps,
-		"Native callbacks require HTTPS, a loopback HTTP URI, or an app-specific custom scheme.":
+		"Native callbacks require non-loopback HTTPS, exact loopback HTTP, or an authority-free reverse-domain scheme.":
 			messages.nativeCallbackInvalid,
 		"Application name is required.": messages.applicationNameRequired,
 		"Application name must be 100 characters or less.":
@@ -393,7 +393,7 @@ export function DeveloperConsole({
 							? ["authorization_code", "refresh_token"]
 							: ["authorization_code"],
 						response_types: ["code"],
-						type: draft.type,
+						application_type: draft.type,
 					},
 					messages.httpError,
 				);
