@@ -1590,6 +1590,43 @@ describe("oauth token - refresh_token", async () => {
 		);
 	});
 
+	/** @see https://datatracker.ietf.org/doc/html/rfc7009#section-2.2 */
+	it("acknowledges an already-revoked refresh token without restoring its validity", async () => {
+		const tokens = await authorizeForRefreshToken([
+			"openid",
+			"profile",
+			"offline_access",
+		]);
+		const token = tokens!.refresh_token!;
+		const revoke = () =>
+			client.$fetch("/oauth2/revoke", {
+				method: "POST",
+				body: new URLSearchParams({
+					token,
+					token_type_hint: "refresh_token",
+					client_id: oauthClient!.client_id,
+					client_secret: oauthClient!.client_secret!,
+				}),
+				headers: { "content-type": "application/x-www-form-urlencoded" },
+			});
+		expect((await revoke()).error).toBeNull();
+		expect((await revoke()).error).toBeNull();
+		const { body, headers } = await refreshAccessTokenRequest({
+			refreshToken: token,
+			options: {
+				clientId: oauthClient!.client_id,
+				clientSecret: oauthClient!.client_secret!,
+				redirectURI: redirectUri,
+			},
+		});
+		const replay = await client.$fetch("/oauth2/token", {
+			method: "POST",
+			body,
+			headers,
+		});
+		expect(replay.error).toMatchObject({ error: "invalid_grant" });
+	});
+
 	/**
 	 * V1 from variants.md: revokeRefreshToken racing against
 	 * handleRefreshTokenGrant on the same parent row. Both paths must run
@@ -1649,7 +1686,7 @@ describe("oauth token - refresh_token", async () => {
 
 		// /oauth2/revoke is RFC 7009 §2.2 always-200, so the racer outcome is
 		// observable through the refresh result alone:
-		//   - refresh won the CAS  → mints a fresh refresh_token; revoke is a no-op
+		//   - refresh won the CAS  → mints a refresh_token; revoke invalidates the family
 		//   - revoke won the CAS  → refresh returns invalid_grant
 		expect(revokeResult.error).toBeNull();
 		if (refreshResult.error === null) {

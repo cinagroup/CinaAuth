@@ -707,7 +707,7 @@ The two formats differ in one way. An opaque token is recomputed on each call, s
 What the endpoint does depends on the token type:
 
 * opaque `access_token`: deleted from the database immediately. A `refresh_token` from the same grant stays valid.
-* `refresh_token`: deletes every `access_token` it minted and removes the `refresh_token`, so it can no longer issue tokens.
+* `refresh_token`: marks the refresh token revoked and deletes the access tokens it minted, so it can no longer issue tokens. Revoking an already-revoked refresh token, including one invalidated by concurrent rotation, returns `200` after invalidating its token family.
 * JWT `access_token`: cannot be revoked server-side. A JWT is self-contained and is never stored, so there is nothing to delete. A token that still verifies for this server responds with `400 unsupported_token_type` ([RFC7009 §2.2.1](https://datatracker.ietf.org/doc/html/rfc7009#section-2.2.1)), making clear that no server-side revocation happened. A JWT that is already expired or carries an audience rejected by the OAuth resource model is treated as an invalid token and returns a `200` no-op.
 
 Because a JWT `access_token` cannot be revoked individually, plan for it:
