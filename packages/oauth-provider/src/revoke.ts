@@ -199,10 +199,8 @@ async function revokeRefreshToken(
 	}
 	if (refreshToken.revoked) {
 		await invalidateRefreshFamily(ctx, clientId, refreshToken.userId);
-		throw new APIError("BAD_REQUEST", {
-			error_description: "refresh token revoked",
-			error: "invalid_request",
-		});
+		// RFC 7009: acknowledging an inactive token does not restore it.
+		return null;
 	}
 	if (!refreshToken.clientId || refreshToken.clientId !== clientId) {
 		return null;
@@ -232,10 +230,7 @@ async function revokeRefreshToken(
 	});
 	if (!won) {
 		await invalidateRefreshFamily(ctx, clientId, refreshToken.userId);
-		throw new APIError("BAD_REQUEST", {
-			error_description: "refresh token revoked",
-			error: "invalid_request",
-		});
+		return null;
 	}
 	await ctx.context.adapter.deleteMany({
 		model: "oauthAccessToken",
