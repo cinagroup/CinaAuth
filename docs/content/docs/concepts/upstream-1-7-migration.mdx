@@ -29,7 +29,7 @@ import { siweClient } from "cinaauth/plugins/siwe-v2/client";
 
 The plugin ID is `siwe-v2`. Existing challenge paths, wallet schema, and `siwe` account provider identifiers remain unchanged. See [SIWE challenge compatibility](/docs/plugins/siwe-v2) for its options. Configure one SIWE implementation per auth instance and keep the server and client protocols aligned.
 
-The production Auth Worker and Account Portal use these compatibility entries. This release does not enable the production SIWE rollout flag.
+The production Auth Worker and Account Portal use these compatibility entries. This release preserves the existing production SIWE rollout setting.
 
 ## OAuth resource verification
 
@@ -48,3 +48,5 @@ Custom rate-limit storage implements atomic `consume` operations. The production
 ## Production rollout
 
 Run the repository type checks, package builds, and deployment contract tests before deployment. The central Cloudflare workflow retains the restore rehearsal, active backup, secret inventory, and migration checks. The read-only **Audit production backups** workflow lists the current successful backup IDs that can be supplied to that deployment workflow.
+
+The production Worker enables teams and dynamic organization roles. Both migration preview and apply must select `/api/migrate?feature=organization-advanced`, including when upgrading existing installations. Version 1.7 adds `team.memberCount` and `teamMember.membershipKey`; the base migration omits these enabled team fields. Runtime schema validation rejects authentication requests until the complete schema has been migrated. Verify OIDC discovery and JWKS after migration before considering the deployment healthy.

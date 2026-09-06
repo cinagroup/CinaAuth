@@ -73,6 +73,34 @@ const pnpmSetupBlocks = (source) => {
 	return blocks;
 };
 
+/** @see https://www.better-auth.com/docs/guides/1-7-upgrade-guide */
+test("central deployment migrates the enabled organization schema before checking Auth", () => {
+	const previewStart = central.indexOf(
+		"      - name: Preview Worker migrations",
+	);
+	const applyStart = central.indexOf("      - name: Apply Worker migrations");
+	const readyStart = central.indexOf("      - name: Check Worker readiness");
+	assert.ok(
+		previewStart > 0 && applyStart > previewStart && readyStart > applyStart,
+	);
+	for (const step of [
+		central.slice(previewStart, applyStart),
+		central.slice(applyStart, readyStart),
+	]) {
+		const migrationURL = step.match(
+			/https:\/\/auth\.cinaseek\.ai\/api\/migrate[^\s"']*/,
+		)?.[0];
+		assert.ok(
+			migrationURL,
+			"migration step must call the protected migration route",
+		);
+		assert.equal(
+			new URL(migrationURL).searchParams.get("feature"),
+			"organization-advanced",
+		);
+	}
+});
+
 test("production workflows use the root packageManager pnpm version", () => {
 	assert.match(rootPackage.packageManager, /^pnpm@\d+\.\d+\.\d+(?:[-+].+)?$/);
 	for (const [name, source] of productionWorkflows) {
