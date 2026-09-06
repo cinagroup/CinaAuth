@@ -312,6 +312,12 @@ describe("db", async () => {
 					return null;
 				},
 				delete: storageDelete,
+				getAndDelete() {
+					return null;
+				},
+				increment() {
+					return 1;
+				},
 			},
 		});
 		const { user } = await signInWithTestUser();

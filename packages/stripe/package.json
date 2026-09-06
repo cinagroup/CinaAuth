@@ -1,6 +1,6 @@
 {
   "name": "@cinaauth/stripe",
-  "version": "1.6.26",
+  "version": "1.7.3",
   "description": "Stripe plugin for CinaAuth",
   "type": "module",
   "license": "MIT",
@@ -61,7 +61,7 @@
   },
   "dependencies": {
     "defu": "^6.1.5",
-    "zod": "^4.3.6"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@cinaauth/core": "workspace:*",

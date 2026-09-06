@@ -8,12 +8,8 @@ export const siweClient = () => {
 		version: PACKAGE_VERSION,
 		$InferServerPlugin: {} as ReturnType<typeof siwe>,
 		pathMethods: {
-			"/siwe/challenge": "POST",
 			"/siwe/nonce": "POST",
 			"/siwe/get-nonce": "POST",
-			"/siwe/link-wallet": "POST",
-			"/siwe/set-primary-wallet": "POST",
-			"/siwe/unlink-wallet": "POST",
 		},
 	} satisfies CinaAuthClientPlugin;
 };

@@ -9,7 +9,7 @@ import {
 import { electron } from "@cinaauth/electron";
 import { oauthProvider } from "@cinaauth/oauth-provider";
 import { passkey } from "@cinaauth/passkey";
-import { scim } from "@cinaauth/scim";
+import { scim } from "@cinaauth/scim/legacy";
 import { sso } from "@cinaauth/sso";
 import { stripe } from "@cinaauth/stripe";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
@@ -45,7 +45,7 @@ import {
 } from "cinaauth/plugins/organization/access";
 import { phoneNumber } from "cinaauth/plugins/phone-number";
 import { privacyCenter } from "cinaauth/plugins/privacy-center";
-import { siwe } from "cinaauth/plugins/siwe";
+import { siwe } from "cinaauth/plugins/siwe-v2";
 import { twoFactor } from "cinaauth/plugins/two-factor";
 import Stripe from "stripe";
 import { adminOidcBridge } from "./admin-oidc-bridge";
@@ -524,23 +524,34 @@ export const createAuthPlugins = (
 			clientPrivileges: ({ session, user }) =>
 				canUseDeveloperOAuthClients({ session, user }),
 			authorizeClient: ({ client }) => {
+				// 1.7 derives client classification from its token authentication
+				// method. Reject contradictory flags retained on older stored rows.
+				const isPublicClient = client.tokenEndpointAuthMethod === "none";
+				const legacyPublic = Reflect.get(client, "public");
+				if (
+					legacyPublic !== undefined &&
+					legacyPublic !== null &&
+					legacyPublic !== isPublicClient
+				) {
+					return false;
+				}
 				if (
 					client.clientId === ADMIN_OIDC_CLIENT_ID ||
 					(origins.cinatokenProfile &&
 						client.clientId === CINATOKEN_OIDC_CLIENT_ID)
 				) {
 					return (
-						client.public === false &&
 						client.disabled !== true &&
 						client.tokenEndpointAuthMethod === "client_secret_basic" &&
+						!isPublicClient &&
 						client.requirePKCE === true
 					);
 				}
 				if (client.clientId === origins.oidcDemoProfile?.clientId) {
 					return (
-						client.public === true &&
 						client.disabled !== true &&
 						client.tokenEndpointAuthMethod === "none" &&
+						isPublicClient &&
 						client.requirePKCE === true
 					);
 				}

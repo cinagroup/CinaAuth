@@ -1,13 +1,15 @@
 import type { CinaAuthOptions } from "@cinaauth/core";
 import type { DBFieldAttribute } from "@cinaauth/core/db";
-import { getAuthTables } from "@cinaauth/core/db";
+import type { ResolvedDBTableIndex } from "@cinaauth/core/db/internal";
+import { getAuthTablesWithResolvedIndexes } from "@cinaauth/core/db/internal";
 
 export function getSchema(config: CinaAuthOptions) {
-	const tables = getAuthTables(config);
+	const { indexesByTable, tables } = getAuthTablesWithResolvedIndexes(config);
 	const schema: Record<
 		string,
 		{
 			fields: Record<string, DBFieldAttribute>;
+			indexes?: readonly ResolvedDBTableIndex[] | undefined;
 			order: number;
 			disableMigrations?: boolean | undefined;
 		}
@@ -44,6 +46,11 @@ export function getSchema(config: CinaAuthOptions) {
 			order: table.order || Infinity,
 			disableMigrations: table.disableMigrations,
 		};
+	}
+	for (const [tableName, indexes] of indexesByTable) {
+		if (schema[tableName]) {
+			schema[tableName].indexes = indexes;
+		}
 	}
 	return schema;
 }

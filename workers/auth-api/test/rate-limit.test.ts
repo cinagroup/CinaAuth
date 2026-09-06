@@ -1,4 +1,3 @@
-import type { RateLimit } from "cinaauth";
 import { describe, expect, it, vi } from "vitest";
 import { decideRateLimit } from "../src/rate-limit-policy";
 import {
@@ -95,20 +94,18 @@ describe("Durable Object storage adapter", () => {
 		expect(consume).toHaveBeenLastCalledWith(key, rule);
 	});
 
-	it("preserves the legacy get/set contract without weakening atomic consume", async () => {
-		const value: RateLimit = { key: "bucket", count: 1, lastRequest: 10 };
-		const consume = vi.fn(async () => ({
-			allowed: true,
-			retryAfter: null,
-		}));
-		const get = vi.fn(async () => value);
+	it("exposes only atomic consumption and preserves blocked responses", async () => {
+		const consume = vi.fn(async () => ({ allowed: false, retryAfter: 59 }));
+		const get = vi.fn(async () => null);
 		const set = vi.fn(async () => undefined);
 		const storage = createDurableObjectRateLimitStorage({
 			RATE_LIMITER: { getByName: () => ({ consume, get, set }) },
 		});
-
-		await expect(storage.get("bucket")).resolves.toEqual(value);
-		await storage.set("bucket", value, true);
-		expect(set).toHaveBeenCalledWith("bucket", value);
+		expect(Object.keys(storage)).toEqual(["consume"]);
+		await expect(
+			storage.consume("bucket", { window: 60, max: 5 }),
+		).resolves.toEqual({ allowed: false, retryAfter: 59 });
+		expect(get).not.toHaveBeenCalled();
+		expect(set).not.toHaveBeenCalled();
 	});
 });

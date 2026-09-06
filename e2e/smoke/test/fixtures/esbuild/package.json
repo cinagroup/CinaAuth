@@ -1,10 +1,15 @@
 {
   "name": "@cinaauth-test/fixtures-esbuild",
   "private": true,
+  "scripts": {
+    "typecheck:consumer": "tsc --noEmit --project tsconfig.json"
+  },
   "dependencies": {
+    "@cinaauth/kysely-adapter": "workspace:*",
     "cinaauth": "workspace:*"
   },
   "devDependencies": {
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.1",
+    "kysely-029": "npm:kysely@0.29.3"
   }
 }

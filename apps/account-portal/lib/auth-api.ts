@@ -186,13 +186,15 @@ export type OAuthClientRecord = {
 	token_endpoint_auth_method?:
 		| "none"
 		| "client_secret_basic"
-		| "client_secret_post";
+		| "client_secret_post"
+		| "private_key_jwt";
 	grant_types?: Array<
 		"authorization_code" | "client_credentials" | "refresh_token"
 	>;
 	response_types?: "code"[];
 	public?: boolean;
 	type?: "web" | "native" | "user-agent-based";
+	application_type?: "web" | "native";
 	disabled?: boolean;
 	require_pkce?: boolean;
 	subject_type?: "public" | "pairwise";

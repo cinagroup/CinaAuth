@@ -16,6 +16,7 @@
     "**/test/**",
     "packages/cinaauth/src/**",
     "packages/core/src/**",
-    "packages/electron/src/**"
+    "packages/electron/src/**",
+    "packages/release-tooling/src/**"
   ]
 }

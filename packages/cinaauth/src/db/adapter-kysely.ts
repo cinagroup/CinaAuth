@@ -7,20 +7,21 @@ export async function getAdapter(
 	options: CinaAuthOptions,
 ): Promise<DBAdapter<CinaAuthOptions>> {
 	return getBaseAdapter(options, async (opts) => {
-		const { createKyselyAdapter } = await import("../adapters/kysely-adapter");
+		const { createKyselyAdapter, kyselyAdapter } = await import(
+			"../adapters/kysely-adapter"
+		);
 		const { kysely, databaseType, transaction } =
 			await createKyselyAdapter(opts);
 		if (!kysely) {
 			throw new CinaAuthError("Failed to initialize database adapter");
 		}
-		const { kyselyAdapter } = await import("../adapters/kysely-adapter");
 		return kyselyAdapter(kysely, {
 			type: databaseType || "sqlite",
 			debugLogs:
 				opts.database && "debugLogs" in opts.database
 					? opts.database.debugLogs
 					: false,
-			transaction: transaction,
+			transaction,
 		})(opts);
 	});
 }

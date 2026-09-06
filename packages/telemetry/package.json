@@ -1,6 +1,6 @@
 {
   "name": "@cinaauth/telemetry",
-  "version": "1.6.26",
+  "version": "1.7.3",
   "description": "Telemetry package for CinaAuth",
   "type": "module",
   "license": "MIT",
@@ -51,7 +51,7 @@
   "devDependencies": {
     "@cinaauth/core": "workspace:*",
     "tsdown": "catalog:",
-    "type-fest": "^5.4.4"
+    "type-fest": "^5.7.0"
   },
   "peerDependencies": {
     "@cinaauth/core": "workspace:^",

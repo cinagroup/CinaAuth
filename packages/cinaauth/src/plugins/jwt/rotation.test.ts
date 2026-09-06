@@ -226,13 +226,13 @@ describe("jwt rotation", async () => {
 				}),
 			],
 		});
-		expect(
-			(await second.auth.api.getJwks()).keys.map((key) => key.alg),
-		).toEqual(["EdDSA", "ES256"]);
 		const token = await second.auth.api.signJWT({
 			body: { payload: { sub: "user1" } },
 		});
 		expect(decodeProtectedHeader(token.token).alg).toBe("ES256");
+		expect(
+			(await second.auth.api.getJwks()).keys.map((key) => key.alg),
+		).toEqual(["EdDSA", "ES256"]);
 		expect(storage).toHaveLength(2);
 		expect(storage[0]?.expiresAt).toBeInstanceOf(Date);
 		expect(

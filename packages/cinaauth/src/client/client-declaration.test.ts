@@ -156,11 +156,11 @@ authClient.useSession();
 		try {
 			const tscPath = path.resolve(
 				__dirname,
-				"../../../../node_modules/.bin/tsc",
+				"../../../../node_modules/typescript/bin/tsc",
 			);
 			const { stderr } = await execFileAsync(
-				tscPath,
-				["--build", "--force", "tsconfig.json"],
+				process.execPath,
+				[tscPath, "--build", "--force", "tsconfig.json"],
 				{
 					cwd: dir,
 					maxBuffer: 1024 * 1024 * 10,

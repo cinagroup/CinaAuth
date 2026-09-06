@@ -8,17 +8,14 @@ import {
 } from "./developer-console";
 
 describe("developer console policy", () => {
-	it("accepts secure web callbacks and local development callbacks", () => {
+	it("accepts HTTPS web callbacks", () => {
 		expect(
 			parseDeveloperRedirectUris(
-				"https://app.example.com/oauth/callback\nhttp://localhost:3000/callback",
+				"https://app.example.com/oauth/callback",
 				"web",
 			),
 		).toEqual({
-			uris: [
-				"https://app.example.com/oauth/callback",
-				"http://localhost:3000/callback",
-			],
+			uris: ["https://app.example.com/oauth/callback"],
 			error: null,
 		});
 	});
@@ -26,12 +23,12 @@ describe("developer console policy", () => {
 	it("accepts native custom schemes and removes duplicate callbacks", () => {
 		expect(
 			parseDeveloperRedirectUris(
-				`cinaapp://oauth/callback
-cinaapp://oauth/callback`,
+				`com.cinagroup.app:/oauth/callback
+com.cinagroup.app:/oauth/callback`,
 				"native",
 			),
 		).toEqual({
-			uris: ["cinaapp://oauth/callback"],
+			uris: ["com.cinagroup.app:/oauth/callback"],
 			error: null,
 		});
 	});
@@ -54,6 +51,45 @@ cinaapp://oauth/callback`,
 		});
 		expect(validateDeveloperClientName(" ").error).not.toBeNull();
 		expect(validateDeveloperClientName("x".repeat(101)).error).not.toBeNull();
+	});
+
+	it("matches the 1.7 web and native redirect registration rules", () => {
+		for (const uri of [
+			"http://localhost:3000/callback",
+			"https://127.0.0.1/callback",
+			"https://localhost./callback",
+		]) {
+			expect(parseDeveloperRedirectUris(uri, "web").error).not.toBeNull();
+		}
+		for (const uri of [
+			"cinaapp://oauth/callback",
+			"com.cinagroup.app://oauth/callback",
+			"http://127.1/callback",
+			"https://localhost/callback",
+			"com.cinagroup.app:/callback#",
+		]) {
+			expect(parseDeveloperRedirectUris(uri, "native").error).not.toBeNull();
+		}
+		for (const uri of [
+			"http://localhost:3000/callback",
+			"http://127.0.0.1:8080/callback",
+			"http://[::1]:8080/callback",
+			"com.cinagroup.app:/callback",
+		]) {
+			expect(parseDeveloperRedirectUris(uri, "native").error).toBeNull();
+		}
+	});
+
+	it("maps canonical client metadata without removed public and type fields", () => {
+		const source = {
+			client_id: "native-client",
+			redirect_uris: ["com.cinagroup.app:/callback"],
+			token_endpoint_auth_method: "none" as const,
+			application_type: "native" as const,
+		};
+		const client = toDeveloperOAuthClient(source);
+		expect(client).toMatchObject({ public: true, type: "native" });
+		expect(canRotateDeveloperSecret(client)).toBe(false);
 	});
 
 	it("maps OAuth records into serializable view models", () => {
@@ -84,6 +120,18 @@ cinaapp://oauth/callback`,
 		});
 		expect(consent.createdAt).toBe("2026-08-10T00:00:00.000Z");
 		expect(consent.updatedAt).toBe("2026-08-10T00:05:00.000Z");
+	});
+
+	it("does not offer shared-secret rotation for private-key clients", () => {
+		expect(
+			canRotateDeveloperSecret(
+				toDeveloperOAuthClient({
+					client_id: "private-key-client",
+					redirect_uris: ["https://app.example.com/callback"],
+					token_endpoint_auth_method: "private_key_jwt",
+				}),
+			),
+		).toBe(false);
 	});
 
 	it("does not offer secret rotation for native public clients", () => {

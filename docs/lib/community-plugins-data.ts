@@ -11,8 +11,8 @@ export interface CommunityPlugin {
 
 export const communityPlugins: CommunityPlugin[] = [
 	{
-		name: "@dymo-api/cinaauth",
-		url: "https://github.com/TPEOficial/dymo-api-cinaauth",
+		name: "@dymo-api/better-auth",
+		url: "https://github.com/TPEOficial/dymo-api-better-auth",
 		description:
 			"Sign Up Protection and validation of disposable emails (the world's largest database with nearly 14 million entries).",
 		author: {
@@ -33,8 +33,8 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "validation-cinaauth",
-		url: "https://github.com/Daanish2003/validation-cinaauth",
+		name: "validation-better-auth",
+		url: "https://github.com/Daanish2003/validation-better-auth",
 		description:
 			"Validate API request using any validation library (e.g., Zod, Yup)",
 		author: {
@@ -44,10 +44,10 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "cinaauth-localization",
-		url: "https://github.com/marcellosso/cinaauth-localization",
+		name: "better-auth-localization",
+		url: "https://github.com/marcellosso/better-auth-localization",
 		description:
-			"Localize and customize cinaauth messages with easy translation and message override support.",
+			"Localize and customize better-auth messages with easy translation and message override support.",
 		author: {
 			name: "marcellosso",
 			github: "marcellosso",
@@ -55,9 +55,9 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "cinaauth-attio-plugin",
-		url: "https://github.com/tobimori/cinaauth-attio-plugin",
-		description: "Sync your products CinaAuth users & workspaces with Attio",
+		name: "better-auth-attio-plugin",
+		url: "https://github.com/tobimori/better-auth-attio-plugin",
+		description: "Sync your products Better Auth users & workspaces with Attio",
 		author: {
 			name: "tobimori",
 			github: "tobimori",
@@ -65,8 +65,8 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "cinaauth-cloudflare",
-		url: "https://github.com/zpg6/cinaauth-cloudflare",
+		name: "better-auth-cloudflare",
+		url: "https://github.com/zpg6/better-auth-cloudflare",
 		description:
 			"Seamlessly integrate with Cloudflare Workers, D1, Hyperdrive, KV, R2, and geolocation services. Includes CLI for project generation, automated resource provisioning on Cloudflare, and database migrations. Supports Next.js, Hono, and more!",
 		author: {
@@ -76,10 +76,10 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "expo-cinaauth-passkey",
-		url: "https://github.com/kevcube/expo-cinaauth-passkey",
+		name: "expo-better-auth-passkey",
+		url: "https://github.com/kevcube/expo-better-auth-passkey",
 		description:
-			"cinaauth client plugin for using passkeys on mobile platforms in expo apps. Supports iOS, macOS, Android (and web!) by wrapping the existing cinaauth passkey client plugin.",
+			"Better-auth client plugin for using passkeys on mobile platforms in expo apps. Supports iOS, macOS, Android (and web!) by wrapping the existing better-auth passkey client plugin.",
 		author: {
 			name: "kevcube",
 			github: "kevcube",
@@ -87,9 +87,9 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "cinaauth-credentials-plugin",
-		url: "https://github.com/erickweil/cinaauth-credentials-plugin",
-		description: "LDAP authentication plugin for CinaAuth.",
+		name: "better-auth-credentials-plugin",
+		url: "https://github.com/erickweil/better-auth-credentials-plugin",
+		description: "LDAP authentication plugin for Better Auth.",
 		author: {
 			name: "erickweil",
 			github: "erickweil",
@@ -97,8 +97,8 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "cinaauth-opaque",
-		url: "https://github.com/TheUntraceable/cinaauth-opaque",
+		name: "better-auth-opaque",
+		url: "https://github.com/TheUntraceable/better-auth-opaque",
 		description:
 			"Provides database-breach resistant authentication using the zero-knowledge OPAQUE protocol.",
 		author: {
@@ -108,10 +108,10 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "cinaauth-firebase-auth",
-		url: "https://github.com/yultyyev/cinaauth-firebase-auth",
+		name: "better-auth-firebase-auth",
+		url: "https://github.com/yultyyev/better-auth-firebase-auth",
 		description:
-			"Firebase Authentication plugin for CinaAuth with built-in email service, Google Sign-In, and password reset functionality.",
+			"Firebase Authentication plugin for Better Auth with built-in email service, Google Sign-In, and password reset functionality.",
 		author: {
 			name: "yultyyev",
 			github: "yultyyev",
@@ -119,8 +119,8 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "cinaauth-university",
-		url: "https://github.com/LuyxLLC/cinaauth-university",
+		name: "better-auth-university",
+		url: "https://github.com/LuyxLLC/better-auth-university",
 		description:
 			"University plugin for allowing only specific email domains to be passed through. Includes a University model with name and domain.",
 		author: {
@@ -130,10 +130,10 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "@alexasomba/cinaauth-paystack",
-		url: "https://github.com/alexasomba/cinaauth-paystack",
+		name: "@alexasomba/better-auth-paystack",
+		url: "https://github.com/alexasomba/better-auth-paystack",
 		description:
-			"Paystack plugin for CinaAuth — integrates Paystack transactions, webhooks, and subscription flows.",
+			"Paystack plugin for Better Auth — integrates Paystack transactions, webhooks, and subscription flows.",
 		author: {
 			name: "alexasomba",
 			github: "alexasomba",
@@ -141,8 +141,8 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "cinaauth-lark",
-		url: "https://github.com/uselark/cinaauth-lark",
+		name: "better-auth-lark",
+		url: "https://github.com/uselark/better-auth-lark",
 		description:
 			"Lark billing plugin that automatically creates customers and subscribes them to free plans on signup.",
 		author: {
@@ -152,8 +152,8 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "stargate-cinaauth",
-		url: "https://github.com/neiii/stargate-cinaauth",
+		name: "stargate-better-auth",
+		url: "https://github.com/neiii/stargate-better-auth",
 		description:
 			"Gate access to resources based on whether the user has starred a repository",
 		author: {
@@ -163,8 +163,8 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "@sequenzy/cinaauth",
-		url: "https://github.com/Sequenzy/sequenzy-cinaauth",
+		name: "@sequenzy/better-auth",
+		url: "https://github.com/Sequenzy/sequenzy-better-auth",
 		description:
 			"Automatically add users to Sequenzy mailing lists on signup for seamless email marketing integration.",
 		author: {
@@ -174,9 +174,9 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "cinaauth-nostr",
-		url: "https://github.com/leon-wbr/cinaauth-nostr",
-		description: "Nostr authentication plugin for CinaAuth (NIP-98).",
+		name: "better-auth-nostr",
+		url: "https://github.com/leon-wbr/better-auth-nostr",
+		description: "Nostr authentication plugin for Better Auth (NIP-98).",
 		author: {
 			name: "leon-wbr",
 			github: "leon-wbr",
@@ -184,8 +184,8 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "@ramiras123/cinaauth-strapi",
-		url: "https://github.com/Ramiras123/cinaauth-strapi",
+		name: "@ramiras123/better-auth-strapi",
+		url: "https://github.com/Ramiras123/better-auth-strapi",
 		description: "Plugin for authorization via strapi",
 		author: {
 			name: "Ramiras123",
@@ -194,10 +194,10 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "cinaauth-razorpay",
-		url: "https://github.com/iamjasonkendrick/cinaauth-razorpay",
+		name: "better-auth-razorpay",
+		url: "https://github.com/iamjasonkendrick/better-auth-razorpay",
 		description:
-			"Razorpay payment plugin for CinaAuth — integrates Razorpay payments, webhooks, and subscription flows.",
+			"Razorpay payment plugin for Better Auth — integrates Razorpay payments, webhooks, and subscription flows.",
 		author: {
 			name: "iamjasonkendrick",
 			github: "iamjasonkendrick",
@@ -205,10 +205,10 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "cinaauth-payu",
-		url: "https://github.com/iamjasonkendrick/cinaauth-payu",
+		name: "better-auth-payu",
+		url: "https://github.com/iamjasonkendrick/better-auth-payu",
 		description:
-			"PayU payment plugin for CinaAuth — integrates PayU payments, webhooks, and subscription flows.",
+			"PayU payment plugin for Better Auth — integrates PayU payments, webhooks, and subscription flows.",
 		author: {
 			name: "iamjasonkendrick",
 			github: "iamjasonkendrick",
@@ -227,10 +227,10 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "cinaauth-usos",
-		url: "https://github.com/qamarq/cinaauth-usos",
+		name: "better-auth-usos",
+		url: "https://github.com/qamarq/better-auth-usos",
 		description:
-			"USOS plugin for CinaAuth - allows students to authenticate using their university credentials via the USOS API. Using oauth 1a.",
+			"USOS plugin for Better Auth - allows students to authenticate using their university credentials via the USOS API. Using oauth 1a.",
 		author: {
 			name: "qamarq",
 			github: "qamarq",
@@ -238,10 +238,10 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "cinaauth-devtools",
-		url: "https://github.com/C-W-D-Harshit/cinaauth-devtools",
+		name: "better-auth-devtools",
+		url: "https://github.com/C-W-D-Harshit/better-auth-devtools",
 		description:
-			"A devtools panel for CinaAuth that lets you create managed test users from templates, switch between sessions instantly, inspect live session data, and edit fields like roles on the fly. All from a floating React UI that only runs in development.",
+			"A devtools panel for Better Auth that lets you create managed test users from templates, switch between sessions instantly, inspect live session data, and edit fields like roles on the fly. All from a floating React UI that only runs in development.",
 		author: {
 			name: "C-W-D-Harshit",
 			github: "C-W-D-Harshit",
@@ -249,10 +249,10 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "cinaauth-audit-logs",
-		url: "https://github.com/ejirocodes/cinaauth-audit-logs",
+		name: "better-auth-audit-logs",
+		url: "https://github.com/ejirocodes/better-auth-audit-logs",
 		description:
-			"Audit log plugin for CinaAuth. Auto-captures auth events with severity inference, PII redaction, custom storage backends, and retention policies.",
+			"Audit log plugin for Better Auth. Auto-captures auth events with severity inference, PII redaction, custom storage backends, and retention policies.",
 		author: {
 			name: "ejirocodes",
 			github: "ejirocodes",
@@ -271,8 +271,8 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "ton-cinaauth",
-		url: "https://github.com/mhbdev/ton-cinaauth",
+		name: "ton-better-auth",
+		url: "https://github.com/mhbdev/ton-better-auth",
 		description: "Sign in with Ton Connect",
 		author: {
 			name: "mhbdev",
@@ -281,8 +281,8 @@ export const communityPlugins: CommunityPlugin[] = [
 		},
 	},
 	{
-		name: "@dbsc-toolkit/cinaauth",
-		url: "https://www.npmjs.com/package/@dbsc-toolkit/cinaauth",
+		name: "@dbsc-toolkit/better-auth",
+		url: "https://www.npmjs.com/package/@dbsc-toolkit/better-auth",
 		description:
 			"Device Bound Session Credentials (DBSC) — binds sessions to a device-resident key so a stolen cookie can't be replayed from another machine. Native binding via TPM or Secure Enclave on Chromium 145+, with a Web Crypto polyfill for Firefox, Safari, and older Chromium.",
 		author: {
@@ -294,7 +294,7 @@ export const communityPlugins: CommunityPlugin[] = [
 	{
 		name: "@marinedotsh/better-auth-referral",
 		url: "https://github.com/marinedotsh/better-auth-referral",
-		description: "A CinaAuth plugin for adding user referrals to your app.",
+		description: "A Better Auth plugin for adding user referrals to your app.",
 		author: {
 			name: "Shivam Gupta",
 			github: "shivamrun",
@@ -304,7 +304,7 @@ export const communityPlugins: CommunityPlugin[] = [
 	{
 		name: "better-auth-instagram",
 		url: "https://github.com/rajatsandeepsen/better-auth-instagram",
-		description: "Instagram Provider for CinaAuth",
+		description: "Instagram Provider for Better Auth",
 		author: {
 			name: "Rajat Sandeep",
 			github: "rajatsandeepsen",
@@ -314,7 +314,7 @@ export const communityPlugins: CommunityPlugin[] = [
 	{
 		name: "better-auth-zoho",
 		url: "https://github.com/rajatsandeepsen/better-auth-zoho",
-		description: "Zoho Provider for CinaAuth",
+		description: "Zoho Provider for Better Auth",
 		author: {
 			name: "Rajat Sandeep",
 			github: "rajatsandeepsen",
@@ -324,7 +324,7 @@ export const communityPlugins: CommunityPlugin[] = [
 	{
 		name: "better-auth-snapchat",
 		url: "https://github.com/rajatsandeepsen/better-auth-snapchat",
-		description: "Snapchat Provider for CinaAuth",
+		description: "Snapchat Provider for Better Auth",
 		author: {
 			name: "Rajat Sandeep",
 			github: "rajatsandeepsen",
@@ -335,11 +335,44 @@ export const communityPlugins: CommunityPlugin[] = [
 		name: "better-inbox",
 		url: "https://github.com/better-inbox/better-inbox",
 		description:
-			"In-app notifications for CinaAuth apps. One plugin, one migration, one component — notifications live in your database, addressed to your users.",
+			"In-app notifications for Better Auth apps. One plugin, one migration, one component — notifications live in your database, addressed to your users.",
 		author: {
 			name: "stewartjarod",
 			github: "stewartjarod",
 			avatar: "https://github.com/stewartjarod.png",
+		},
+	},
+	{
+		name: "better-auth-email-challenge",
+		url: "https://github.com/lapluviosilla/better-auth-email-challenge",
+		description:
+			"Passwordless, multi-device email challenge — one challenge completable by an approval link or OTP, with browser-bound session issuance for safe cross-device sign-in.",
+		author: {
+			name: "lapluviosilla",
+			github: "lapluviosilla",
+			avatar: "https://github.com/lapluviosilla.png",
+		},
+	},
+	{
+		name: "@better-geetest/better-auth-plugin-gt4",
+		url: "https://github.com/typed-sigterm/better-geetest/tree/main/packages/better-auth-plugin-gt4",
+		description:
+			"Integrate GeeTest gt4 bot protection by adding captcha verification for key endpoints.",
+		author: {
+			name: "Typed SIGTERM",
+			github: "typed-sigterm",
+			avatar: "https://github.com/typed-sigterm.png",
+		},
+	},
+	{
+		name: "better-auth-evp",
+		url: "https://github.com/qamarq/better-auth-evp",
+		description:
+			"Email Verification Protocol (Chrome origin trial) plugin - lets a supporting browser verify mailbox ownership in the background and sign the user in, with automatic fallback to any other sign-in method when unsupported.",
+		author: {
+			name: "qamarq",
+			github: "qamarq",
+			avatar: "https://github.com/qamarq.png",
 		},
 	},
 ];

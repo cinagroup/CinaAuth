@@ -27,6 +27,8 @@ Razorpay
 razorpay
 payu
 PayU
+contoso
+Contoso
 Mikro
 anthropics
 cinagroup
@@ -34,11 +36,12 @@ cinaauth
 cinaadmin
 Cina
 Zitadel
-cinaseek
-Cinaseek
 CINASEEK
+Cinaseek
+agentid
 cinaapp
+cinachain
+cinaseek
+cinashop
 cinatoken
 cinawalletkit
-cinachain
-cinashop

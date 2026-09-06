@@ -52,11 +52,12 @@ describe("OAuth client runtime authorization", () => {
 		const token = await auth.handler(
 			new Request("http://localhost:3000/api/auth/oauth2/token", {
 				method: "POST",
-				headers: { "content-type": "application/x-www-form-urlencoded" },
+				headers: {
+					"content-type": "application/x-www-form-urlencoded",
+					authorization: `Basic ${Buffer.from(`${encodeURIComponent(client.client_id)}:${encodeURIComponent(client.client_secret)}`).toString("base64")}`,
+				},
 				body: new URLSearchParams({
 					grant_type: "client_credentials",
-					client_id: client.client_id,
-					client_secret: client.client_secret,
 				}),
 			}),
 		);

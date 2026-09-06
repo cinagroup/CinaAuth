@@ -9,11 +9,12 @@ import type { InferFieldsInputClient } from "../db/field";
 import type { Auth, Session, User } from "../types";
 import type { StripEmptyObjects, UnionToIntersection } from "../types/helper";
 import type { InferRoutes } from "./path-to-object";
+
 export type {
-	ClientStore,
-	ClientAtomListener,
 	CinaAuthClientOptions,
 	CinaAuthClientPlugin,
+	ClientAtomListener,
+	ClientStore,
 };
 
 type ClientPluginError<K extends string = string> = {

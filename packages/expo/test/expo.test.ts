@@ -72,6 +72,10 @@ describe("expo", async () => {
 						storage: {
 							getItem: (key) => storage.get(key) || null,
 							setItem: async (key, value) => storage.set(key, value),
+							getItemAsync: async (key) => storage.get(key) || null,
+							setItemAsync: async (key, value) => {
+								storage.set(key, value);
+							},
 						},
 					}),
 				],
@@ -150,6 +154,10 @@ describe("expo", async () => {
 							storage: {
 								getItem: (key) => storage.get(key) || null,
 								setItem: async (key, value) => storage.set(key, value),
+								getItemAsync: async (key) => storage.get(key) || null,
+								setItemAsync: async (key, value) => {
+									storage.set(key, value);
+								},
 							},
 							webBrowserOptions: {
 								preferEphemeralSession: true,
@@ -173,7 +181,7 @@ describe("expo", async () => {
 	});
 
 	it("should get cookies", async () => {
-		const c = client.getCookie();
+		const c = await client.getCookie();
 		expect(c).includes("cinaauth.session_token");
 	});
 
@@ -343,6 +351,10 @@ describe("expo", async () => {
 							storage: {
 								getItem: (key) => storage.get(key) || null,
 								setItem: async (key, value) => storage.set(key, value),
+								getItemAsync: async (key) => storage.get(key) || null,
+								setItemAsync: async (key, value) => {
+									storage.set(key, value);
+								},
 							},
 						}),
 					],
@@ -391,6 +403,10 @@ describe("expo", async () => {
 								storage: {
 									getItem: (key) => storage.get(key) || null,
 									setItem: async (key, value) => storage.set(key, value),
+									getItemAsync: async (key) => storage.get(key) || null,
+									setItemAsync: async (key, value) => {
+										storage.set(key, value);
+									},
 								},
 							}),
 						],
@@ -441,6 +457,10 @@ describe("expo", async () => {
 								storage: {
 									getItem: (key) => storage.get(key) || null,
 									setItem: async (key, value) => storage.set(key, value),
+									getItemAsync: async (key) => storage.get(key) || null,
+									setItemAsync: async (key, value) => {
+										storage.set(key, value);
+									},
 								},
 							}),
 						],
@@ -547,6 +567,10 @@ describe("expo", async () => {
 							storage: {
 								getItem: (key) => storage.get(key) || null,
 								setItem: async (key, value) => storage.set(key, value),
+								getItemAsync: async (key) => storage.get(key) || null,
+								setItemAsync: async (key, value) => {
+									storage.set(key, value);
+								},
 							},
 						}),
 					],
@@ -608,6 +632,10 @@ describe("expo", async () => {
 							storage: {
 								getItem: (key) => storage.get(key) || null,
 								setItem: async (key, value) => storage.set(key, value),
+								getItemAsync: async (key) => storage.get(key) || null,
+								setItemAsync: async (key, value) => {
+									storage.set(key, value);
+								},
 							},
 						}),
 					],
@@ -733,6 +761,10 @@ describe("expo with cookieCache", async () => {
 						storage: {
 							getItem: (key) => storage.get(key) || null,
 							setItem: async (key, value) => storage.set(key, value),
+							getItemAsync: async (key) => storage.get(key) || null,
+							setItemAsync: async (key, value) => {
+								storage.set(key, value);
+							},
 						},
 					}),
 				],
@@ -861,17 +893,30 @@ describe("expo with cookieCache", async () => {
 
 	it("should normalize colons in secure storage name via storage adapter", async () => {
 		const map = new Map<string, string>();
+		const setItem = vi.fn((name: string, value: string) => {
+			map.set(name, value);
+		});
+		const setItemAsync = vi.fn(async (name: string, value: string) => {
+			map.set(name, value);
+		});
 		const storage = storageAdapter({
 			getItem(name) {
 				return map.get(name) || null;
 			},
-			setItem(name, value) {
-				map.set(name, value);
+			setItem,
+			async getItemAsync(name) {
+				return map.get(name) || null;
 			},
+			setItemAsync,
 		});
-		await storage.setItem("cinaauth:session_token", "123");
+		storage.setItem("cinaauth:session_token", "123");
 		expect(map.has("cinaauth_session_token")).toBe(true);
 		expect(map.has("cinaauth:session_token")).toBe(false);
+		expect(setItem).toHaveBeenCalledWith("cinaauth_session_token", "123");
+		expect(setItemAsync).not.toHaveBeenCalled();
+
+		await storage.setItemAsync("cinaauth:session_token", "456");
+		expect(setItemAsync).toHaveBeenCalledWith("cinaauth_session_token", "456");
 	});
 
 	/**
@@ -892,10 +937,17 @@ describe("expo with cookieCache", async () => {
 				}
 				map.set(name, value);
 			},
+			getItemAsync: async (name) => map.get(name) ?? null,
+			setItemAsync: async (name, value) => {
+				if (value.length > WRITE_LIMIT) {
+					throw new Error("value exceeds storage limit");
+				}
+				map.set(name, value);
+			},
 		});
 
 		const large = "x".repeat(10_000);
-		await storage.setItem("cinaauth_cookie", large);
+		storage.setItem("cinaauth_cookie", large);
 
 		// No single physical write may exceed the backend limit.
 		for (const value of map.values()) {
@@ -904,17 +956,25 @@ describe("expo with cookieCache", async () => {
 		// The value is split across several keys, not stored under the base key.
 		expect(map.size).toBeGreaterThan(1);
 		expect(storage.getItem("cinaauth_cookie")).toBe(large);
+
+		await storage.setItemAsync("cinaauth_cookie_async", large);
+		const storedValue = await storage.getItemAsync("cinaauth_cookie_async");
+		expect(storedValue).toBe(large);
 	});
 
-	it("should store a value within the limit under the base key unchanged", async () => {
+	it("should store a value within the limit under the base key unchanged", () => {
 		const map = new Map<string, string>();
 		const storage = storageAdapter({
 			getItem: (name) => map.get(name) ?? null,
 			setItem: (name, value) => map.set(name, value),
+			getItemAsync: async (name) => map.get(name) ?? null,
+			setItemAsync: async (name, value) => {
+				map.set(name, value);
+			},
 		});
 
 		const small = JSON.stringify({ token: "abc" });
-		await storage.setItem("cinaauth_cookie", small);
+		storage.setItem("cinaauth_cookie", small);
 
 		expect(map.get("cinaauth_cookie")).toBe(small);
 		expect(map.size).toBe(1);
@@ -929,6 +989,10 @@ describe("expo with cookieCache", async () => {
 		const storage = storageAdapter({
 			getItem: (name) => map.get(name) ?? null,
 			setItem: (name, value) => map.set(name, value),
+			getItemAsync: async (name) => map.get(name) ?? null,
+			setItemAsync: async (name, value) => {
+				map.set(name, value);
+			},
 		});
 
 		expect(storage.getItem("cinaauth_cookie")).toBe(
@@ -936,60 +1000,435 @@ describe("expo with cookieCache", async () => {
 		);
 	});
 
-	it("should fail closed when a chunk is missing", async () => {
-		const map = new Map<string, string>();
+	it("should read values written with the legacy chunk marker", async () => {
+		const map = new Map<string, string>([
+			["cinaauth_cookie", "\u0001ba-chunks:2"],
+			["cinaauth_cookie.0", "legacy-"],
+			["cinaauth_cookie.1", "value"],
+		]);
 		const storage = storageAdapter({
 			getItem: (name) => map.get(name) ?? null,
 			setItem: (name, value) => map.set(name, value),
-		});
-
-		await storage.setItem("cinaauth_cookie", "y".repeat(5_000));
-		// Simulate a torn write: drop one data chunk.
-		map.delete("cinaauth_cookie.1");
-
-		expect(storage.getItem("cinaauth_cookie")).toBeNull();
-	});
-
-	it("should not return mixed old/new data when a chunked overwrite is interrupted", async () => {
-		const map = new Map<string, string>();
-		let failAfter = Number.POSITIVE_INFINITY;
-		let writes = 0;
-		const storage = storageAdapter({
-			getItem: (name) => map.get(name) ?? null,
-			setItem: (name, value) => {
-				if (writes++ >= failAfter) {
-					throw new Error("interrupted");
-				}
+			getItemAsync: async (name) => map.get(name) ?? null,
+			setItemAsync: async (name, value) => {
 				map.set(name, value);
 			},
 		});
 
-		const oldValue = "a".repeat(5_000);
-		await storage.setItem("cinaauth_cookie", oldValue);
-		expect(storage.getItem("cinaauth_cookie")).toBe(oldValue);
-
-		// Overwrite with another large value, failing after the marker clear and
-		// the first chunk so the remaining chunks keep their old data.
-		const error = vi.spyOn(console, "error").mockImplementation(() => {});
-		writes = 0;
-		failAfter = 2;
-		await storage.setItem("cinaauth_cookie", "b".repeat(5_000));
-		error.mockRestore();
-
-		// The reassembled value must never splice old "a" chunks into the new write.
-		const result = storage.getItem("cinaauth_cookie");
-		expect(result ?? "").not.toContain("a");
+		expect(storage.getItem("cinaauth_cookie")).toBe("legacy-value");
+		await expect(storage.getItemAsync("cinaauth_cookie")).resolves.toBe(
+			"legacy-value",
+		);
 	});
 
-	it("should shrink from chunked to a single value without bleeding stale chunks", async () => {
+	it("should fail closed when a chunk is missing", async () => {
+		const map = new Map<string, string>([
+			["cinaauth_cookie", "\u0001ba-chunks:2:0"],
+			["cinaauth_cookie.0.0", "first chunk"],
+		]);
+		const storage = storageAdapter({
+			getItem: (name) => map.get(name) ?? null,
+			setItem: (name, value) => map.set(name, value),
+			getItemAsync: async (name) => map.get(name) ?? null,
+			setItemAsync: async (name, value) => {
+				map.set(name, value);
+			},
+		});
+		expect(storage.getItem("cinaauth_cookie")).toBeNull();
+		await expect(storage.getItemAsync("cinaauth_cookie")).resolves.toBeNull();
+	});
+
+	/**
+	 * @see https://github.com/better-auth/better-auth/issues/11082
+	 */
+	describe("chunked storage consistency", () => {
+		function applyCookieResponse(
+			plugin: ReturnType<typeof expoClient>,
+			setCookie: string,
+		) {
+			const onSuccess = plugin.fetchPlugins[0]?.hooks?.onSuccess;
+			if (!onSuccess) {
+				throw new Error("Expo response hook is unavailable");
+			}
+			return onSuccess({
+				request: { url: "https://example.com/api/auth/test" },
+				response: new Response(null, { headers: { "set-cookie": setCookie } }),
+			} as Parameters<typeof onSuccess>[0]);
+		}
+
+		function createAsyncStorage() {
+			const map = new Map<string, string>();
+			const nextTask = () =>
+				new Promise<void>((resolve) => queueMicrotask(resolve));
+			return storageAdapter({
+				getItem: (name) => map.get(name) ?? null,
+				setItem: (name, value) => map.set(name, value),
+				getItemAsync: async (name) => {
+					await nextTask();
+					return map.get(name) ?? null;
+				},
+				setItemAsync: async (name, value) => {
+					await nextTask();
+					map.set(name, value);
+				},
+			});
+		}
+
+		it("should preserve the previous value when a sync overwrite fails", () => {
+			const map = new Map<string, string>();
+			let failAfter = Number.POSITIVE_INFINITY;
+			let writes = 0;
+			const storage = storageAdapter({
+				getItem: (name) => map.get(name) ?? null,
+				setItem: (name, value) => {
+					if (writes++ >= failAfter) {
+						throw new Error("interrupted");
+					}
+					map.set(name, value);
+				},
+				getItemAsync: async (name) => map.get(name) ?? null,
+				setItemAsync: async (name, value) => {
+					if (writes++ >= failAfter) {
+						throw new Error("interrupted");
+					}
+					map.set(name, value);
+				},
+			});
+
+			storage.setItem("cinaauth_cookie", "a".repeat(3_000));
+			const previousValue = "b".repeat(5_000);
+			storage.setItem("cinaauth_cookie", previousValue);
+			expect(storage.getItem("cinaauth_cookie")).toBe(previousValue);
+
+			const error = vi.spyOn(console, "error").mockImplementation(() => {});
+			writes = 0;
+			failAfter = 2;
+			storage.setItem("cinaauth_cookie", "c".repeat(5_000));
+
+			expect(error).toHaveBeenCalledTimes(1);
+			expect(storage.getItem("cinaauth_cookie")).toBe(previousValue);
+		});
+
+		it.for([
+			{ failedWrite: 1 },
+			{ failedWrite: 2 },
+			{ failedWrite: 3 },
+			{ failedWrite: 4 },
+			{ failedWrite: 5 },
+		])("should preserve the previous value when async write $failedWrite fails", async ({
+			failedWrite,
+		}) => {
+			const map = new Map<string, string>();
+			let writeIndex = 0;
+			let failing = false;
+			const storage = storageAdapter({
+				getItem: (name) => map.get(name) ?? null,
+				setItem: (name, value) => map.set(name, value),
+				getItemAsync: async (name) => map.get(name) ?? null,
+				setItemAsync: async (name, value) => {
+					if (failing && ++writeIndex === failedWrite) {
+						throw new Error("interrupted");
+					}
+					map.set(name, value);
+				},
+			});
+			await storage.setItemAsync("cinaauth_cookie", "a".repeat(3_000));
+			const previousValue = "b".repeat(5_000);
+			await storage.setItemAsync("cinaauth_cookie", previousValue);
+			writeIndex = 0;
+			failing = true;
+			const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+			await storage.setItemAsync("cinaauth_cookie", "c".repeat(5_000));
+
+			expect(error).toHaveBeenCalledTimes(1);
+			await expect(storage.getItemAsync("cinaauth_cookie")).resolves.toBe(
+				previousValue,
+			);
+		});
+
+		it("should disable fallback while its slot is being overwritten", async () => {
+			const map = new Map<string, string>();
+			let writeIndex = 0;
+			let failing = false;
+			const storage = storageAdapter({
+				getItem: (name) => map.get(name) ?? null,
+				setItem: (name, value) => map.set(name, value),
+				getItemAsync: async (name) => map.get(name) ?? null,
+				setItemAsync: async (name, value) => {
+					if (failing && ++writeIndex === 3) {
+						throw new Error("interrupted");
+					}
+					map.set(name, value);
+				},
+			});
+			await storage.setItemAsync("cinaauth_cookie", "a".repeat(3_000));
+			await storage.setItemAsync("cinaauth_cookie", "b".repeat(5_000));
+			writeIndex = 0;
+			failing = true;
+			vi.spyOn(console, "error").mockImplementation(() => {});
+
+			await storage.setItemAsync("cinaauth_cookie", "c".repeat(5_000));
+			map.delete("cinaauth_cookie.1.1");
+
+			expect(storage.getItem("cinaauth_cookie")).toBeNull();
+			await expect(storage.getItemAsync("cinaauth_cookie")).resolves.toBeNull();
+		});
+
+		it("should fall back when the active slot is incomplete", async () => {
+			const map = new Map<string, string>();
+			const storage = storageAdapter({
+				getItem: (name) => map.get(name) ?? null,
+				setItem: (name, value) => map.set(name, value),
+				getItemAsync: async (name) => map.get(name) ?? null,
+				setItemAsync: async (name, value) => {
+					map.set(name, value);
+				},
+			});
+			const previousValue = "a".repeat(3_000);
+			await storage.setItemAsync("cinaauth_cookie", previousValue);
+			await storage.setItemAsync("cinaauth_cookie", "b".repeat(5_000));
+			map.delete("cinaauth_cookie.1.1");
+
+			expect(storage.getItem("cinaauth_cookie")).toBe(previousValue);
+			await expect(storage.getItemAsync("cinaauth_cookie")).resolves.toBe(
+				previousValue,
+			);
+		});
+
+		it("should read the previous value during a chunked overwrite", async () => {
+			const storage = createAsyncStorage();
+			await storage.setItemAsync("cinaauth_cookie", "a".repeat(3_000));
+			const previousValue = "b".repeat(5_000);
+			await storage.setItemAsync("cinaauth_cookie", previousValue);
+			const newValue = "c".repeat(5_000);
+
+			const write = storage.setItemAsync("cinaauth_cookie", newValue);
+			const read = storage.getItemAsync("cinaauth_cookie");
+			const [stored] = await Promise.all([read, write]);
+
+			expect(stored).toBe(previousValue);
+		});
+
+		it("should serialize concurrent chunked overwrites", async () => {
+			const storage = createAsyncStorage();
+			const firstValue = "a".repeat(5_000);
+			const secondValue = "b".repeat(5_000);
+			const thirdValue = "c".repeat(5_000);
+
+			await Promise.all([
+				storage.setItemAsync("cinaauth_cookie", firstValue),
+				storage.setItemAsync("cinaauth_cookie", secondValue),
+				storage.setItemAsync("cinaauth_cookie", thirdValue),
+			]);
+
+			await expect(storage.getItemAsync("cinaauth_cookie")).resolves.toBe(
+				thirdValue,
+			);
+		});
+
+		it("should serialize writes across adapters sharing storage", async () => {
+			const map = new Map<string, string>();
+			let activeWrites = 0;
+			let peakWrites = 0;
+			const backingStorage = {
+				getItem: (name: string) => map.get(name) ?? null,
+				setItem: (name: string, value: string) => map.set(name, value),
+				getItemAsync: async (name: string) => map.get(name) ?? null,
+				setItemAsync: async (name: string, value: string) => {
+					activeWrites++;
+					peakWrites = Math.max(peakWrites, activeWrites);
+					await new Promise<void>((resolve) => queueMicrotask(resolve));
+					map.set(name, value);
+					activeWrites--;
+				},
+			};
+			const first = storageAdapter(backingStorage);
+			const second = storageAdapter(backingStorage);
+
+			await Promise.all([
+				first.setItemAsync("cinaauth_cookie", "a".repeat(5_000)),
+				second.setItemAsync("cinaauth_cookie", "b".repeat(5_000)),
+			]);
+
+			expect(peakWrites).toBe(1);
+
+			peakWrites = 0;
+			await Promise.all([
+				first.setItemAsync("first_cookie", "a".repeat(5_000)),
+				second.setItemAsync("second_cookie", "b".repeat(5_000)),
+			]);
+
+			expect(peakWrites).toBe(2);
+		});
+
+		it("should not coordinate independent storage backends", async () => {
+			const firstMap = new Map<string, string>();
+			const secondMap = new Map<string, string>();
+			const first = storageAdapter({
+				getItem: (name) => firstMap.get(name) ?? null,
+				setItem: (name, value) => firstMap.set(name, value),
+				getItemAsync: async (name) => firstMap.get(name) ?? null,
+				setItemAsync: async (name, value) => {
+					await new Promise<void>((resolve) => queueMicrotask(resolve));
+					firstMap.set(name, value);
+				},
+			});
+			const second = storageAdapter({
+				getItem: (name) => secondMap.get(name) ?? null,
+				setItem: (name, value) => secondMap.set(name, value),
+				getItemAsync: async (name) => secondMap.get(name) ?? null,
+				setItemAsync: async (name, value) => {
+					secondMap.set(name, value);
+				},
+			});
+			const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+			const write = first.setItemAsync("cinaauth_cookie", "a".repeat(5_000));
+			second.setItem("cinaauth_cookie", "independent");
+			await write;
+			const errorCalls = error.mock.calls.length;
+			error.mockRestore();
+
+			expect(errorCalls).toBe(0);
+			expect(second.getItem("cinaauth_cookie")).toBe("independent");
+		});
+
+		it("should not mix a sync write into a pending async write", async () => {
+			const map = new Map<string, string>();
+			const backingStorage = {
+				getItem: (name: string) => map.get(name) ?? null,
+				setItem: (name: string, value: string) => map.set(name, value),
+				getItemAsync: async (name: string) => map.get(name) ?? null,
+				setItemAsync: async (name: string, value: string) => {
+					await new Promise<void>((resolve) => queueMicrotask(resolve));
+					map.set(name, value);
+				},
+			};
+			const asyncStorage = storageAdapter(backingStorage);
+			const syncStorage = storageAdapter(backingStorage);
+			const asyncValue = "a".repeat(5_000);
+			const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+			const write = asyncStorage.setItemAsync("cinaauth_cookie", asyncValue);
+			syncStorage.setItem("cinaauth_cookie", "b".repeat(5_000));
+			await write;
+
+			expect(error).toHaveBeenCalledTimes(1);
+			await expect(asyncStorage.getItemAsync("cinaauth_cookie")).resolves.toBe(
+				asyncValue,
+			);
+		});
+
+		it("should update a value without losing concurrent changes", async () => {
+			const map = new Map<string, string>();
+			const backingStorage = {
+				getItem: (name: string) => map.get(name) ?? null,
+				setItem: (name: string, value: string) => map.set(name, value),
+				getItemAsync: async (name: string) => map.get(name) ?? null,
+				setItemAsync: async (name: string, value: string) => {
+					await new Promise<void>((resolve) => queueMicrotask(resolve));
+					map.set(name, value);
+				},
+			};
+			const first = expoClient({ scheme: "test", storage: backingStorage });
+			const second = expoClient({ scheme: "test", storage: backingStorage });
+
+			await Promise.all([
+				applyCookieResponse(first, "cinaauth.first=value; Path=/"),
+				applyCookieResponse(second, "cinaauth.second=value; Path=/"),
+			]);
+
+			const stored =
+				await storageAdapter(backingStorage).getItemAsync("cinaauth_cookie");
+			expect(JSON.parse(stored ?? "{}")).toMatchObject({
+				"cinaauth.first": { value: "value" },
+				"cinaauth.second": { value: "value" },
+			});
+		});
+
+		it("should keep atomic updates internal to the Expo client", () => {
+			const storage = storageAdapter({
+				getItem: () => null,
+				setItem: () => {},
+				getItemAsync: async () => null,
+				setItemAsync: async () => {},
+			});
+
+			expect(storage).not.toHaveProperty("updateItemAsync");
+		});
+
+		it("should not notify when a cookie update cannot be stored", async () => {
+			const previousValue = JSON.stringify({
+				"cinaauth.session_token": { value: "previous", expires: null },
+			});
+			const plugin = expoClient({
+				scheme: "test",
+				storage: {
+					getItem: () => previousValue,
+					setItem: () => {},
+					getItemAsync: async () => previousValue,
+					setItemAsync: async () => {
+						throw new Error("keychain rejected write");
+					},
+				},
+			});
+			const notify = vi.fn();
+			plugin.getActions(undefined, { notify } as unknown as Parameters<
+				typeof plugin.getActions
+			>[1]);
+			const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+			await applyCookieResponse(plugin, "cinaauth.session_token=next; Path=/");
+
+			expect(error).toHaveBeenCalledTimes(1);
+			expect(notify).not.toHaveBeenCalled();
+		});
+
+		it("should reject excessive chunk counts", async () => {
+			const map = new Map<string, string>([["cinaauth_cookie", "previous"]]);
+			const getItem = vi.fn((name: string) => map.get(name) ?? null);
+			const getItemAsync = vi.fn(async (name: string) => map.get(name) ?? null);
+			const storage = storageAdapter({
+				getItem,
+				setItem: (name, value) => map.set(name, value),
+				getItemAsync,
+				setItemAsync: async (name, value) => {
+					map.set(name, value);
+				},
+			});
+			const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+			await storage.setItemAsync("cinaauth_cookie", "x".repeat(180_001));
+
+			expect(error).toHaveBeenCalledTimes(1);
+			await expect(storage.getItemAsync("cinaauth_cookie")).resolves.toBe(
+				"previous",
+			);
+
+			map.set("cinaauth_cookie", "\u0001ba-chunks:101:0");
+			getItem.mockClear();
+			getItemAsync.mockClear();
+			expect(storage.getItem("cinaauth_cookie")).toBeNull();
+			await expect(storage.getItemAsync("cinaauth_cookie")).resolves.toBeNull();
+			expect(getItem).toHaveBeenCalledTimes(1);
+			expect(getItemAsync).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	it("should shrink from chunked to a single value without bleeding stale chunks", () => {
 		const map = new Map<string, string>();
 		const storage = storageAdapter({
 			getItem: (name) => map.get(name) ?? null,
 			setItem: (name, value) => map.set(name, value),
+			getItemAsync: async (name) => map.get(name) ?? null,
+			setItemAsync: async (name, value) => {
+				map.set(name, value);
+			},
 		});
 
-		await storage.setItem("cinaauth_cookie", "z".repeat(5_000));
-		await storage.setItem("cinaauth_cookie", "small");
+		storage.setItem("cinaauth_cookie", "z".repeat(5_000));
+		storage.setItem("cinaauth_cookie", "small");
 
 		expect(storage.getItem("cinaauth_cookie")).toBe("small");
 	});
@@ -1001,12 +1440,17 @@ describe("expo with cookieCache", async () => {
 			setItem: () => {
 				throw new Error("keychain rejected write");
 			},
+			getItemAsync: async () => null,
+			setItemAsync: async () => {
+				throw new Error("keychain rejected write");
+			},
 		});
 
+		expect(() => storage.setItem("cinaauth_cookie", "value")).not.toThrow();
 		await expect(
-			storage.setItem("cinaauth_cookie", "value"),
+			storage.setItemAsync("cinaauth_cookie", "value"),
 		).resolves.toBeUndefined();
-		expect(error).toHaveBeenCalledOnce();
+		expect(error).toHaveBeenCalledTimes(2);
 		error.mockRestore();
 	});
 });
@@ -1035,6 +1479,10 @@ describe("expo with cookie storeStateStrategy", async () => {
 						storage: {
 							getItem: (key) => storage.get(key) || null,
 							setItem: async (key, value) => storage.set(key, value),
+							getItemAsync: async (key) => storage.get(key) || null,
+							setItemAsync: async (key, value) => {
+								storage.set(key, value);
+							},
 						},
 					}),
 				],
@@ -1133,6 +1581,10 @@ describe("expo deep link cookie injection", async () => {
 						storage: {
 							getItem: (key) => storage.get(key) || null,
 							setItem: async (key, value) => storage.set(key, value),
+							getItemAsync: async (key) => storage.get(key) || null,
+							setItemAsync: async (key, value) => {
+								storage.set(key, value);
+							},
 						},
 					}),
 					magicLinkClient(),
@@ -1198,6 +1650,10 @@ describe("expo deep link cookie injection with wildcard trustedOrigins", async (
 						storage: {
 							getItem: (key) => storage.get(key) || null,
 							setItem: async (key, value) => storage.set(key, value),
+							getItemAsync: async (key) => storage.get(key) || null,
+							setItemAsync: async (key, value) => {
+								storage.set(key, value);
+							},
 						},
 					}),
 					magicLinkClient(),
@@ -1263,6 +1719,10 @@ describe("expo deep link cookie injection for verify-email", async () => {
 						storage: {
 							getItem: (key) => storage.get(key) || null,
 							setItem: async (key, value) => storage.set(key, value),
+							getItemAsync: async (key) => storage.get(key) || null,
+							setItemAsync: async (key, value) => {
+								storage.set(key, value);
+							},
 						},
 					}),
 				],
@@ -1307,15 +1767,134 @@ describe("expo deep link cookie injection for verify-email", async () => {
 });
 
 /**
- * @see https://github.com/cinagroup/cinaauth/issues/8952
+ * @see https://github.com/better-auth/better-auth/issues/10382
+ */
+describe("expo secure storage availability", () => {
+	it("rejects asynchronously when SecureStore is unavailable", async () => {
+		const storageError = new Error("User interaction is not allowed");
+		const getItem = vi.fn(() => {
+			throw storageError;
+		});
+		const getItemAsync = vi.fn().mockRejectedValue(storageError);
+		const { client } = await getTestInstance(
+			{ plugins: [expo()], trustedOrigins: ["cinaauth://"] },
+			{
+				clientOptions: {
+					plugins: [
+						expoClient({
+							storage: {
+								getItem,
+								getItemAsync,
+								setItem: vi.fn(),
+								setItemAsync: vi.fn(async () => {}),
+							},
+						}),
+					],
+				},
+			},
+		);
+
+		expect(getItemAsync).not.toHaveBeenCalled();
+		expect(getItem).not.toHaveBeenCalled();
+		await expect(client.getSession()).rejects.toBe(storageError);
+		expect(getItemAsync).toHaveBeenCalled();
+		expect(getItem).not.toHaveBeenCalled();
+	});
+});
+
+/**
+ * @see https://github.com/better-auth/better-auth/issues/8952
  */
 describe("expo session cache hydration", async () => {
+	it("shares cold-start hydration without restoring stale session data", async () => {
+		let resolveSessionCacheRead: (value: string | null) => void = () => {};
+		const sessionCacheRead = new Promise<string | null>((resolve) => {
+			resolveSessionCacheRead = resolve;
+		});
+		const getItemAsync = vi.fn((key: string) => {
+			if (key === "cinaauth_session_data") {
+				return sessionCacheRead;
+			}
+			return Promise.resolve(null);
+		});
+		const { client } = await getTestInstance(
+			{ plugins: [expo()], trustedOrigins: ["cinaauth://"] },
+			{
+				clientOptions: {
+					plugins: [
+						expoClient({
+							storage: {
+								getItem: () => null,
+								setItem: () => {},
+								getItemAsync,
+								setItemAsync: async () => {},
+							},
+						}),
+					],
+				},
+			},
+		);
+
+		const firstRequest = client.getSession();
+		const secondRequest = client.getSession();
+		await vi.waitFor(() => {
+			expect(getItemAsync).toHaveBeenCalledWith("cinaauth_session_data");
+		});
+
+		const sessionAtom = client.$store.atoms.session!;
+		const now = new Date();
+		const serverSession = {
+			user: {
+				id: "server-user",
+				name: "Server User",
+				email: "server@example.com",
+				emailVerified: true,
+				createdAt: now,
+				updatedAt: now,
+			},
+			session: {
+				id: "server-session",
+				userId: "server-user",
+				token: "server-token",
+				expiresAt: new Date(now.getTime() + 60_000),
+				createdAt: now,
+				updatedAt: now,
+			},
+		};
+		sessionAtom.set({
+			...sessionAtom.get(),
+			data: serverSession,
+			error: null,
+		});
+		resolveSessionCacheRead(
+			JSON.stringify({
+				user: { id: "cached-user" },
+				session: {
+					id: "cached-session",
+					expiresAt: new Date(Date.now() + 60_000).toISOString(),
+				},
+			}),
+		);
+		await Promise.all([firstRequest, secondRequest]);
+
+		const sessionCacheReads = getItemAsync.mock.calls.filter(
+			([key]) => key === "cinaauth_session_data",
+		);
+		expect(sessionAtom.get().data).toEqual(serverSession);
+		expect(sessionCacheReads).toHaveLength(1);
+	});
+
 	it("preserves additional fields through the cache round-trip", async () => {
 		const storage = new Map<string, string>();
+		const getItemAsync = vi.fn(async (key: string) => storage.get(key) || null);
 		const sharedClientOptions = {
 			storage: {
 				getItem: (key: string) => storage.get(key) || null,
 				setItem: (key: string, value: string) => storage.set(key, value),
+				getItemAsync,
+				setItemAsync: async (key: string, value: string) => {
+					storage.set(key, value);
+				},
 			},
 		};
 		const serverConfig = {
@@ -1352,13 +1931,18 @@ describe("expo session cache hydration", async () => {
 		const { client: coldStart } = await getTestInstance(serverConfig, {
 			clientOptions: { plugins: [expoClient(sharedClientOptions)] },
 		});
+		getItemAsync.mockClear();
+		await coldStart.getSession();
+		expect(getItemAsync).toHaveBeenCalledWith("cinaauth_session_data");
 		const atom = coldStart.$store.atoms.session!.get();
 		expect(atom.data).toMatchObject({
 			user: { favoriteColor: "blue" },
 			session: { deviceLabel: "test-device" },
 		});
-		// Hydration is optimistic; /get-session will still be awaited.
-		expect(atom.isPending).toBe(true);
+
+		getItemAsync.mockClear();
+		await coldStart.getSession();
+		expect(getItemAsync).not.toHaveBeenCalledWith("cinaauth_session_data");
 	});
 
 	it.each([
@@ -1384,6 +1968,10 @@ describe("expo session cache hydration", async () => {
 							storage: {
 								getItem: (k) => storage.get(k) || null,
 								setItem: (k, v) => storage.set(k, v),
+								getItemAsync: async (k) => storage.get(k) || null,
+								setItemAsync: async (k, v) => {
+									storage.set(k, v);
+								},
 							},
 						}),
 					],
@@ -1391,11 +1979,13 @@ describe("expo session cache hydration", async () => {
 			},
 		);
 
+		await client.getSession();
 		expect(client.$store.atoms.session!.get().data).toBeNull();
 	});
 
 	it("does not hydrate when disableCache is set", async () => {
 		const storage = new Map<string, string>();
+		const getItemAsync = vi.fn(async (key: string) => storage.get(key) || null);
 		storage.set(
 			"cinaauth_session_data",
 			JSON.stringify({
@@ -1417,6 +2007,10 @@ describe("expo session cache hydration", async () => {
 							storage: {
 								getItem: (k) => storage.get(k) || null,
 								setItem: (k, v) => storage.set(k, v),
+								getItemAsync,
+								setItemAsync: async (k, v) => {
+									storage.set(k, v);
+								},
 							},
 						}),
 					],
@@ -1424,6 +2018,8 @@ describe("expo session cache hydration", async () => {
 			},
 		);
 
+		await client.getSession();
+		expect(getItemAsync).not.toHaveBeenCalledWith("cinaauth_session_data");
 		expect(client.$store.atoms.session!.get().data).toBeNull();
 	});
 });

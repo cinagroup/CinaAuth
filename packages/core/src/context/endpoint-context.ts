@@ -2,7 +2,7 @@ import type { AsyncLocalStorage } from "@cinaauth/core/async_hooks";
 import { getAsyncLocalStorage } from "@cinaauth/core/async_hooks";
 import type { EndpointContext, InputContext } from "better-call";
 import type { AuthContext } from "../types";
-import { __getCinaAuthGlobal } from "./global";
+import { __getCinaAuthGlobal, __getCurrentEndpointContext } from "./global";
 
 export type AuthEndpointContext = Partial<
 	InputContext<string, any> & EndpointContext<string, any>
@@ -10,41 +10,68 @@ export type AuthEndpointContext = Partial<
 	context: AuthContext;
 };
 
-const ensureAsyncStorage = async () => {
-	const CinaAuthGlobal = __getCinaAuthGlobal();
-	if (!CinaAuthGlobal.context.endpointContextAsyncStorage) {
-		const AsyncLocalStorage = await getAsyncLocalStorage();
-		CinaAuthGlobal.context.endpointContextAsyncStorage =
-			new AsyncLocalStorage<AuthEndpointContext>();
+type AuthEndpointContextStorage = AsyncLocalStorage<AuthEndpointContext>;
+
+const getExistingEndpointContextStorage = () => {
+	return __getCinaAuthGlobal().context.endpointContextAsyncStorage as
+		| AuthEndpointContextStorage
+		| undefined;
+};
+
+const getOrCreateEndpointContextStorage = async () => {
+	const existing = getExistingEndpointContextStorage();
+	if (existing) {
+		return existing;
 	}
-	return CinaAuthGlobal.context
-		.endpointContextAsyncStorage as AsyncLocalStorage<AuthEndpointContext>;
+	const AsyncLocalStorage = await getAsyncLocalStorage();
+	const globalContext = __getCinaAuthGlobal().context;
+	const storage = (globalContext.endpointContextAsyncStorage ??=
+		new AsyncLocalStorage<AuthEndpointContext>()) as AuthEndpointContextStorage;
+	return storage;
 };
 
 /**
- * This is for internal use only. Most users should use `getCurrentAuthContext` instead.
- *
- * It is exposed for advanced use cases where you need direct access to the AsyncLocalStorage instance.
+ * @deprecated Use `getCurrentAuthEndpointContext`,
+ * `tryGetCurrentAuthEndpointContext`, or `runWithEndpointContext` instead.
  */
 export async function getCurrentAuthContextAsyncLocalStorage() {
-	return ensureAsyncStorage();
+	return getOrCreateEndpointContextStorage();
 }
 
-export async function getCurrentAuthContext(): Promise<AuthEndpointContext> {
-	const als = await ensureAsyncStorage();
-	const context = als.getStore();
-	if (!context) {
+/**
+ * Returns the current auth endpoint context, or `undefined` when called outside
+ * of `runWithEndpointContext`.
+ */
+export function tryGetCurrentAuthEndpointContext() {
+	return __getCurrentEndpointContext<AuthEndpointContext>();
+}
+
+/**
+ * Returns the current auth endpoint context.
+ *
+ * @throws When called outside of `runWithEndpointContext`.
+ */
+export function getCurrentAuthEndpointContext() {
+	const authEndpointContext = tryGetCurrentAuthEndpointContext();
+	if (!authEndpointContext) {
 		throw new Error(
 			"No auth context found. Please make sure you are calling this function within a `runWithEndpointContext` callback.",
 		);
 	}
-	return context;
+	return authEndpointContext;
+}
+
+/**
+ * @deprecated Use `getCurrentAuthEndpointContext` instead.
+ */
+export async function getCurrentAuthContext() {
+	return getCurrentAuthEndpointContext();
 }
 
 export async function runWithEndpointContext<T>(
-	context: AuthEndpointContext,
+	authEndpointContext: AuthEndpointContext,
 	fn: () => T,
 ): Promise<T> {
-	const als = await ensureAsyncStorage();
-	return als.run(context, fn);
+	const storage = await getOrCreateEndpointContextStorage();
+	return storage.run(authEndpointContext, fn);
 }

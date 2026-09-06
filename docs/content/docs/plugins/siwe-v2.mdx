@@ -1,0 +1,394 @@
+---
+title: SIWE Challenge Compatibility (SIWE)
+description: Sign in with Ethereum plugin for CinaAuth
+---
+
+The Sign in with Ethereum (SIWE) plugin allows users to authenticate using their Ethereum wallets following the [EIP-4361 standard](https://eips.ethereum.org/EIPS/eip-4361). This plugin provides flexibility by allowing you to implement your own message verification and nonce generation logic.
+
+## Installation
+
+<Steps>
+  <Step>
+    ### Add the Server Plugin
+
+    Add the SIWE plugin to your auth configuration:
+
+    ```ts title="auth.ts"
+    import { CinaAuth } from "cinaauth";
+    import { siwe } from "cinaauth/plugins/siwe-v2"; // [!code highlight]
+
+    export const auth = CinaAuth({
+        plugins: [
+            siwe({
+                domain: "example.com",
+                uri: "https://example.com/sign-in",
+                allowedChainIds: [1],
+                legacyNonce: false,
+                allowUserCreation: false,
+                emailDomainName: "example.com", // optional
+                anonymous: false, // optional, default is true
+                verifyMessage: async (args) => {
+                    // Implement your SIWE message verification logic here
+                    // This should verify the signature against the message
+                    return true; // return true if signature is valid
+                },
+                ensLookup: async (args) => {
+                    // Optional: Implement ENS lookup for user names and avatars
+                    return {
+                        name: "user.eth",
+                        avatar: "https://example.com/avatar.png"
+                    };
+                },
+            }),
+        ],
+    });
+    ```
+  </Step>
+
+  <Step>
+    ### Migrate the database
+
+    Run the migration or generate the schema to add the necessary fields and tables to the database.
+
+    <Tabs items={["migrate", "generate"]}>
+      <Tab value="migrate">
+        ```package-install
+        npx auth migrate
+        ```
+      </Tab>
+
+      <Tab value="generate">
+        ```package-install
+        npx auth generate
+        ```
+      </Tab>
+    </Tabs>
+
+    See the [Schema](#schema) section to add the fields manually.
+  </Step>
+
+  <Step>
+    ### Add the Client Plugin
+
+    ```ts title="auth-client.ts"
+    import { createAuthClient } from "cinaauth/client";
+    import { siweClient } from "cinaauth/plugins/siwe-v2/client"; // [!code highlight]
+
+    export const authClient = createAuthClient({
+    plugins: [
+        siweClient() // [!code highlight]
+    ]
+    });
+    ```
+  </Step>
+</Steps>
+
+## Usage
+
+### Create a Purpose-Bound Challenge
+
+Use the v2 challenge endpoint for new integrations. CinaAuth generates a
+cryptographically random challenge ID and nonce, stores the complete canonical
+message as a single-use verification value, and returns the exact message the
+wallet must sign:
+
+```ts
+import { authClient } from "@/lib/auth-client";
+
+const { data: challenge, error } = await authClient.siwe.challenge({
+  walletAddress: "0x1234567890abcdef1234567890abcdef12345678",
+  chainId: 1,
+  purpose: "sign-in",
+});
+
+if (challenge) {
+  // Sign challenge.message with the selected EOA wallet using EIP-191.
+  console.log(challenge.challengeId, challenge.message);
+}
+```
+
+### Sign In with Ethereum
+
+After signing the returned canonical message, submit the challenge and signature:
+
+```ts
+import { authClient } from "@/lib/auth-client";
+
+const { data, error } = await authClient.siwe.verify({
+  challengeId: challenge.challengeId,
+  message: challenge.message,
+  signature: "0x...", // The signature from the user's wallet
+  walletAddress: "0x1234567890abcdef1234567890abcdef12345678",
+  chainId: 1, // optional for Ethereum mainnet, required for other chains. Must match Chain ID in SIWE message
+  email: "user@example.com", // optional, required if anonymous is false
+});
+
+if (data) {
+  console.log("Authentication successful:", data.user);
+}
+```
+
+<Callout type="warning">
+  Sign the returned `challenge.message` byte-for-byte. CinaAuth strictly parses
+  EIP-4361, requires domain, URI (including its query), version `1`, address,
+  Chain ID, nonce, Request ID, Issued At freshness, Expiration Time, and Not
+  Before to match, and atomically consumes the challenge. A changed statement
+  or field is rejected before the signature callback runs.
+</Callout>
+
+The first release supports EOA EIP-191 message signatures only. Do not claim
+ERC-1271 or ERC-6492 smart-account support until your server-side verifier and
+real-wallet test suite explicitly implement those standards.
+
+### Legacy Nonces
+
+`siwe.nonce` and its `siwe.getNonce` alias remain available for compatibility.
+They issue a nonce keyed by wallet address and chain, but cannot bind issuance
+to a purpose or session. Set `legacyNonce: false` in production after clients
+move to `/siwe/challenge`. If no custom `getNonce` callback is supplied, CinaAuth
+generates a secure alphanumeric legacy nonce.
+
+<Callout type="warning">
+  A SIWE signature proves control of the wallet, not ownership of the `email` you pass. The plugin stores that email unverified and only binds it to the new account when it is not already in use. When `anonymous` is `false` and the supplied email already belongs to another account, the new wallet account is created with a wallet-derived address instead, so a sign-in cannot attach an email another account owns.
+</Callout>
+
+### Manage Wallets for an Existing Account
+
+Do not use `siwe.verify` to attach a wallet while a user is already signed in.
+That endpoint is a login operation and can create or switch to the wallet owner.
+Use the authenticated wallet lifecycle instead:
+
+```ts
+// 1. Request a session-bound challenge and sign its exact message.
+const { data: challenge } = await authClient.siwe.challenge({
+  walletAddress,
+  chainId,
+  purpose: "link-wallet",
+});
+
+// 2. Link the proof to the current session's user.
+await authClient.siwe.linkWallet({
+  challengeId: challenge.challengeId,
+  message: challenge.message,
+  signature,
+  walletAddress,
+  chainId,
+});
+
+const { data } = await authClient.siwe.listWallets();
+
+await authClient.siwe.setPrimaryWallet({ walletAddress, chainId });
+await authClient.siwe.unlinkWallet({ walletAddress, chainId });
+```
+
+Challenge issuance for `link-wallet`, plus `linkWallet`, `setPrimaryWallet`, and
+`unlinkWallet`, require a fresh authoritative session. The caller cannot supply
+a `userId`; the challenge is bound to its purpose, current user, and current
+session, then atomically consumed during linking.
+Wallet and SIWE account rows change in one transaction. CinaAuth rejects
+cross-user wallet takeover and refuses to unlink the last available login
+method. Removing a primary wallet promotes the oldest remaining wallet.
+
+### Chain-Specific Examples
+
+Here are examples for different blockchain networks:
+
+```ts
+// Ethereum Mainnet (chainId can be omitted, defaults to 1)
+import { authClient } from "@/lib/auth-client";
+
+const { data, error } = await authClient.siwe.verify({
+  message,
+  signature,
+  walletAddress,
+  // chainId: 1 (default)
+});
+```
+
+```ts
+// Polygon (chainId REQUIRED)
+import { authClient } from "@/lib/auth-client";
+
+const { data, error } = await authClient.siwe.verify({
+  message,
+  signature,
+  walletAddress,
+  chainId: 137, // Required for Polygon
+});
+```
+
+```ts
+// Arbitrum (chainId REQUIRED)
+import { authClient } from "@/lib/auth-client";
+
+const { data, error } = await authClient.siwe.verify({
+  message,
+  signature,
+  walletAddress,
+  chainId: 42161, // Required for Arbitrum
+});
+```
+
+```ts
+// Base (chainId REQUIRED)
+import { authClient } from "@/lib/auth-client";
+
+const { data, error } = await authClient.siwe.verify({
+  message,
+  signature,
+  walletAddress,
+  chainId: 8453, // Required for Base
+});
+```
+
+<Callout type="warning">
+  The `chainId` must match the Chain ID specified in your SIWE message. Verification will fail with a 401 error if there's a mismatch between the message's Chain ID and the `chainId` parameter.
+</Callout>
+
+## Configuration Options
+
+### Server Options
+
+The SIWE plugin accepts the following configuration options:
+
+* **domain**: The domain name of your application (required for SIWE message generation)
+* **uri**: The exact HTTPS relying-party URI, including path and query. It must use the configured domain. HTTP is accepted only for localhost development. Defaults to `https://${domain}`
+* **enabled**: Server-side SIWE issuance and verification kill switch. Default is `true`
+* **allowedChainIds**: Optional allowlist of positive EVM Chain IDs. Configure this explicitly in production
+* **legacyNonce**: Whether `/siwe/nonce` and `/siwe/get-nonce` remain available. Default is `true` for compatibility; set it to `false` after migrating clients to v2 challenges
+* **allowUserCreation**: Whether an unknown verified wallet may create a user. Default is `true` for compatibility; set it to `false` for a link-first or invitation-only production rollout
+* **challengeExpiresIn**: Single-use v2 challenge lifetime in seconds. Default is 900, maximum is 3600
+* **maxMessageAge**: Maximum accepted age of `Issued At` in seconds. Default is 900, maximum is 3600
+* **clockSkew**: Clock-skew allowance in seconds. Default is 60, maximum is 300
+* **rateLimit**: Optional per-IP, per-path SIWE abuse limit. Defaults to 10 requests per 60 seconds for challenge, legacy nonce, verification, and wallet-link proof endpoints. Application-level custom rate-limit rules may override it
+* **emailDomainName**: The email domain name for creating user accounts when not using anonymous mode. Defaults to the domain from your base URL
+* **anonymous**: Whether to allow anonymous sign-ins without requiring an email. Default is `true`
+* **getNonce**: Optional compatibility callback for legacy nonce endpoints. It must return at least eight alphanumeric characters. V2 challenges always use CinaAuth's cryptographic generator
+* **verifyMessage**: Function that verifies an EIP-191 signature over the supplied message and address (for example, viem's `verifyMessage`). CinaAuth first performs strict message and challenge validation
+* **ensLookup**: Optional function to lookup ENS names and avatars for Ethereum addresses
+
+Proof messages are limited to 16 KiB and signatures to 512 characters. Challenge
+fields have fixed schemas, safe-integer Chain IDs, and reject unknown keys. These
+schema limits run after JSON parsing; production edge or Worker configuration
+should additionally cap raw `/siwe/challenge` request bodies at 2 KiB and raw
+`/siwe/verify` / `/siwe/link-wallet` bodies at 20 KiB, including requests that
+omit or forge `Content-Length`.
+
+### Client Options
+
+The SIWE client plugin doesn't require any configuration options, but you can pass them if needed for future extensibility:
+
+```ts title="auth-client.ts"
+import { createAuthClient } from "cinaauth/client";
+import { siweClient } from "cinaauth/plugins/siwe-v2/client";
+
+export const authClient = createAuthClient({
+  plugins: [
+    siweClient({
+      // Optional client configuration can go here
+    }),
+  ],
+});
+```
+
+## Schema
+
+The SIWE plugin adds a `walletAddress` table to store user wallet associations:
+
+| Field     | Type    | Description                               |
+| --------- | ------- | ----------------------------------------- |
+| id        | string  | Primary key                               |
+| userId    | string  | Reference to user.id                      |
+| address   | string  | Ethereum wallet address                   |
+| chainId   | number  | Chain ID (e.g., 1 for Ethereum mainnet)   |
+| isPrimary | boolean | Whether this is the user's primary wallet |
+| createdAt | date    | Creation timestamp                        |
+
+For external wallet subjects, use the exported CAIP-10 helper:
+
+```ts
+import { toCaip10AccountId } from "cinaauth/plugins/siwe";
+
+const subject = toCaip10AccountId(walletAddress, chainId);
+// eip155:1:0x...
+```
+
+For v2 challenges, the verifier callback's CAIP payload uses
+`did:pkh:eip155:<chainId>:<checksumAddress>` as `cacao.p.iss` and the configured
+RP URI as `cacao.p.aud`. Legacy nonce verification preserves its existing
+domain-valued issuer and audience fields. Existing `account.accountId` database
+rows retain the
+legacy `<address>:<chainId>` format for compatibility. The helper does not
+migrate persisted rows; a future database migration must dual-read and backfill
+all wallet lifecycle and Admin consumers together.
+
+## Example Implementation
+
+Here's a complete example showing how to implement SIWE authentication:
+
+```ts title="auth.ts"
+import { CinaAuth } from "cinaauth";
+import { siwe } from "cinaauth/plugins/siwe-v2";
+import { verifyMessage, createPublicClient, http } from "viem";
+import { mainnet } from "viem/chains";
+
+export const auth = CinaAuth({
+  database: {
+    // your database configuration
+  },
+  plugins: [
+    siwe({
+      domain: "myapp.com",
+      uri: "https://myapp.com/sign-in",
+      allowedChainIds: [1],
+      legacyNonce: false,
+      emailDomainName: "myapp.com",
+      anonymous: false,
+      verifyMessage: async ({ message, signature, address }) => {
+        try {
+          // Verify the signature using viem (recommended)
+          const isValid = await verifyMessage({
+            address: address as `0x${string}`,
+            message,
+            signature: signature as `0x${string}`,
+          });
+          return isValid;
+        } catch (error) {
+          console.error("SIWE verification failed:", error);
+          return false;
+        }
+      },
+      ensLookup: async ({ walletAddress }) => {
+        try {
+          // Optional: lookup ENS name and avatar using viem
+          // You can use viem's ENS utilities here
+          const client = createPublicClient({
+            chain: mainnet,
+            transport: http(),
+          });
+
+          const ensName = await client.getEnsName({
+            address: walletAddress as `0x${string}`,
+          });
+
+          const ensAvatar = ensName
+            ? await client.getEnsAvatar({
+                name: ensName,
+              })
+            : null;
+
+          return {
+            name: ensName || walletAddress,
+            avatar: ensAvatar || "",
+          };
+        } catch {
+          return {
+            name: walletAddress,
+            avatar: "",
+          };
+        }
+      },
+    }),
+  ],
+});
+```

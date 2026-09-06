@@ -69,7 +69,9 @@ const makeRepository = () => {
 		},
 	} as unknown as DeliveryWorkerEnv;
 	return {
-		...sqlState,
+		database: sqlState.database,
+		state: sqlState.state,
+		waitForInitialization: sqlState.waitForInitialization,
 		repository: new DeliveryProviderConfig(sqlState.state, env),
 	};
 };

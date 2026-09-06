@@ -4,6 +4,7 @@ import { parseCookies } from "cinaauth/cookies";
 import type { I18nOptions, LocaleDetectionStrategy } from "./types";
 import { PACKAGE_VERSION } from "./version";
 
+export * as locales from "./locales";
 export type {
 	I18nOptions,
 	LocaleDetectionStrategy,

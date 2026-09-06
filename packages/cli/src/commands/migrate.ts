@@ -3,7 +3,7 @@ import path from "node:path";
 import { createTelemetry, getTelemetryAuthConfig } from "@cinaauth/telemetry";
 import chalk from "chalk";
 import { getAdapter } from "cinaauth/db/adapter";
-import { getMigrations } from "cinaauth/db/migration";
+import { getMigrations, UnsafeMigrationError } from "cinaauth/db/migration";
 import { Command } from "commander";
 import prompts from "prompts";
 import yoctoSpinner from "yocto-spinner";
@@ -99,9 +99,54 @@ export async function migrateAction(opts: any) {
 
 	const spinner = yoctoSpinner({ text: "preparing migration..." }).start();
 
-	const { toBeAdded, toBeCreated, runMigrations } = await getMigrations(config);
+	let plan: Awaited<ReturnType<typeof getMigrations>>;
+	try {
+		plan = await getMigrations(config);
+	} catch (error) {
+		spinner.stop();
+		if (!(error instanceof UnsafeMigrationError)) throw error;
+		console.error(chalk.red("The migration was refused, and nothing ran."));
+		console.error(error.message);
+		console.error(
+			`Run ${chalk.yellow("npx auth@latest generate")} to read the statements without executing them.`,
+		);
+		try {
+			const telemetry = await createTelemetry(config);
+			await telemetry.publish({
+				type: "cli_migrate",
+				payload: {
+					outcome: "unsafe_change",
+					config: await getTelemetryAuthConfig(config),
+				},
+			});
+		} catch {}
+		process.exit(1);
+	}
+	if (plan.schemaProblems.length) {
+		spinner.stop();
+		console.error(
+			chalk.red.bold(
+				`The database has ${plan.schemaProblems.length} ${plan.schemaProblems.length === 1 ? "column" : "columns"} CinaAuth cannot write to. Nothing ran.`,
+			),
+		);
+		for (const problem of plan.schemaProblems) {
+			console.error(chalk.red(`-> ${problem}`));
+		}
+		try {
+			const telemetry = await createTelemetry(config);
+			await telemetry.publish({
+				type: "cli_migrate",
+				payload: {
+					outcome: "schema_problem",
+					config: await getTelemetryAuthConfig(config),
+				},
+			});
+		} catch {}
+		process.exit(1);
+	}
+	const { toBeAdded, toBeAddedIndexes, toBeCreated, runMigrations } = plan;
 
-	if (!toBeAdded.length && !toBeCreated.length) {
+	if (!toBeAdded.length && !toBeAddedIndexes.length && !toBeCreated.length) {
 		spinner.stop();
 		console.log("🚀 No migrations needed.");
 		try {
@@ -126,6 +171,17 @@ export async function migrateAction(opts: any) {
 			chalk.magenta(Object.keys(table.fields).join(", ")),
 			chalk.white("fields on"),
 			chalk.yellow(`${table.table}`),
+			chalk.white("table."),
+		);
+	}
+	for (const { index, table } of toBeAddedIndexes) {
+		console.log(
+			"->",
+			chalk.magenta(index.columns.join(", ")),
+			chalk.white(
+				index.unique ? "fields in a unique index on" : "fields indexed on",
+			),
+			chalk.yellow(table),
 			chalk.white("table."),
 		);
 	}

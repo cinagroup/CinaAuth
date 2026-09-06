@@ -5,6 +5,13 @@ export type {
 	CinaAuthPlugin,
 	CinaAuthRateLimitOptions,
 	StoreIdentifierOption,
+	UserProvisioningSource,
+	ValidateUserInfoAction,
+	ValidateUserInfoMethod,
+	ValidateUserInfoOAuthInfo,
+	ValidateUserInfoResult,
+	ValidateUserInfoSource,
+	ValidateUserInfoSSOInfo,
 } from "@cinaauth/core";
 export type * from "@cinaauth/core/social-providers";
 export * from "../client/types";

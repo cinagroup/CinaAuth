@@ -1,3 +1,1 @@
-﻿# @cinaauth-test/adapter-base
-
-## null
+# @cinaauth-test/adapter-base

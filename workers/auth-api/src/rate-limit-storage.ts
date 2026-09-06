@@ -56,8 +56,6 @@ export const createDurableObjectRateLimitStorage = (
 		env.RATE_LIMITER.getByName(await getRateLimitShardName(key));
 
 	return {
-		get: async (key) => (await getStub(key)).get(key),
-		set: async (key, value) => (await getStub(key)).set(key, value),
 		consume: async (key, rule) => (await getStub(key)).consume(key, rule),
 	};
 };

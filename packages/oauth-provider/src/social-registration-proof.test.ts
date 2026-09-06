@@ -109,7 +109,7 @@ function createOptions(storeStateStrategy: "cookie" | "database" = "database") {
 
 async function startOAuth(
 	customFetchImpl: FetchImpl,
-	path: "/sign-in/social" | "/sign-in/oauth2",
+	path: "/sign-in/social",
 	body: Record<string, unknown>,
 	jar: CookieJar = new Map(),
 ) {
@@ -136,7 +136,7 @@ async function startOAuth(
 }
 
 describe("social OAuth prompt=create registration proof", () => {
-	it("strips forged proof state without oauth_query and overwrites it for both social start endpoints", async () => {
+	it("isolates proof in server context for built-in and Generic OAuth providers", async () => {
 		const { auth, customFetchImpl } = await getTestInstance(createOptions(), {
 			disableTestUser: true,
 		});
@@ -147,8 +147,8 @@ describe("social OAuth prompt=create registration proof", () => {
 				body: { provider: "google", callbackURL: "/callback" },
 			},
 			{
-				path: "/sign-in/oauth2" as const,
-				body: { providerId, callbackURL: "/callback" },
+				path: "/sign-in/social" as const,
+				body: { provider: providerId, callbackURL: "/callback" },
 			},
 		];
 
@@ -159,6 +159,7 @@ describe("social OAuth prompt=create registration proof", () => {
 				additionalData: {
 					[querySignatureStateKey]: "attacker-signature",
 					[queryExpiresAtStateKey]: Date.now() + 60_000,
+					serverContext: { [querySignatureStateKey]: "attacker-signature" },
 				},
 			});
 			const forgedState = await context.internalAdapter.findVerificationValue(
@@ -171,6 +172,7 @@ describe("social OAuth prompt=create registration proof", () => {
 			>;
 			expect(forgedPayload[querySignatureStateKey]).toBeUndefined();
 			expect(forgedPayload[queryExpiresAtStateKey]).toBeUndefined();
+			expect(forgedPayload.serverContext).toBeUndefined();
 
 			const signed = await createSignedPromptCreateQuery(String(index));
 			const protectedStart = await startOAuth(customFetchImpl, start.path, {
@@ -180,6 +182,7 @@ describe("social OAuth prompt=create registration proof", () => {
 				additionalData: {
 					[querySignatureStateKey]: "attacker-signature",
 					[queryExpiresAtStateKey]: 1,
+					serverContext: { [querySignatureStateKey]: "attacker-signature" },
 				},
 			});
 			const protectedState =
@@ -191,10 +194,13 @@ describe("social OAuth prompt=create registration proof", () => {
 				string,
 				unknown
 			>;
-			expect(protectedPayload[querySignatureStateKey]).toBe(
-				signed.querySignature,
-			);
-			expect(protectedPayload[queryExpiresAtStateKey]).toBe(signed.expiresAt);
+			const serverContext = protectedPayload.serverContext as Record<
+				string,
+				unknown
+			>;
+			expect(protectedPayload[querySignatureStateKey]).toBeUndefined();
+			expect(serverContext[querySignatureStateKey]).toBe(signed.querySignature);
+			expect(serverContext[queryExpiresAtStateKey]).toBe(signed.expiresAt);
 		}
 	});
 
@@ -212,16 +218,16 @@ describe("social OAuth prompt=create registration proof", () => {
 				const signed = await createSignedPromptCreateQuery(id);
 				const { state, jar } = await startOAuth(
 					customFetchImpl,
-					"/sign-in/oauth2",
+					"/sign-in/social",
 					{
-						providerId,
+						provider: providerId,
 						callbackURL: "/callback",
 						disableRedirect: true,
 						oauth_query: signed.query,
 					},
 				);
 				const callback = await customFetchImpl(
-					`${baseURL}/api/auth/oauth2/callback/${providerId}?code=test-code&state=${encodeURIComponent(state)}`,
+					`${baseURL}/api/auth/callback/${providerId}?code=test-code&state=${encodeURIComponent(state)}`,
 					{
 						headers: { cookie: cookieHeader(jar) },
 						redirect: "manual",

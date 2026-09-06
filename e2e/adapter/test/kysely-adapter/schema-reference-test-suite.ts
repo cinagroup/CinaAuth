@@ -44,8 +44,10 @@ export const schemaRefJoinTestSuite = createTestSuite(
 	{
 		defaultCinaAuthOptions: {
 			...DEFAULT_CINAAUTH_OPTIONS,
-			experimental: {
-				joins: true,
+			advanced: {
+				database: {
+					joins: true,
+				},
 			},
 		},
 		alwaysMigrate: true,

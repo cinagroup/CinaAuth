@@ -1,6 +1,8 @@
 ﻿import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { convertToModelMessages, stepCountIs, streamText, tool } from "ai";
 import * as z from "zod";
+import { getChatErrorMessage } from "@/lib/ai-chat/error";
+import { prepareChatStep } from "@/lib/ai-chat/step";
 import { getLLMText } from "@/lib/llm-text";
 import { source } from "@/lib/source";
 import { checkRateLimit, getClientIP } from "./rate-limit";
@@ -403,10 +405,16 @@ export async function POST(req: Request) {
 					},
 				}),
 			},
+			prepareStep: prepareChatStep,
 			stopWhen: stepCountIs(8),
 		});
 
-		return result.toUIMessageStreamResponse();
+		return result.toUIMessageStreamResponse({
+			onError: (error) => {
+				console.error(`[ai-chat] stream error (${errorId})`, error);
+				return getChatErrorMessage(error);
+			},
+		});
 	} catch (err) {
 		console.error(`[ai-chat] unhandled error (${errorId})`, err);
 		return new Response(

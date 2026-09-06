@@ -127,8 +127,8 @@ export function OAuthProviderButtons({
 							});
 							return;
 						}
-						void authClient.signIn.oauth2({
-							providerId: provider.id,
+						void authClient.signIn.social({
+							provider: provider.id,
 							callbackURL,
 						});
 					}}

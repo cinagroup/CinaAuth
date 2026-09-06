@@ -51,6 +51,13 @@ export function __getCinaAuthGlobal(): CinaAuthGlobal {
 	return (globalThis as any)[symbol] as CinaAuthGlobal;
 }
 
+export function __getCurrentEndpointContext<T>(): T | undefined {
+	const storage = __getCinaAuthGlobal().context.endpointContextAsyncStorage as
+		| AsyncLocalStorage<T>
+		| undefined;
+	return storage?.getStore();
+}
+
 export function getCinaAuthVersion(): string {
 	return __getCinaAuthGlobal().version;
 }

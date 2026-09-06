@@ -19,6 +19,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@cinaauth/core": "workspace:*",
     "@cinaauth/api-key": "link:../../packages/api-key",
     "@cinaauth/auth-proxy": "workspace:*",
     "@cinaauth/auth-web-contract": "workspace:*",
@@ -73,7 +74,8 @@
     "tailwind-merge": "^3.5.0",
     "viem": "2.55.13",
     "wagmi": "2.19.5",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "@cinaauth/mcp": "workspace:*"
   },
   "devDependencies": {
     "@opennextjs/cloudflare": "^1.6.0",

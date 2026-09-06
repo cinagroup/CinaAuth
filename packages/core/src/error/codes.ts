@@ -1,3 +1,4 @@
+import type {} from "@cinaauth/core";
 import { defineErrorCodes } from "../utils/error-codes";
 
 declare module "@cinaauth/core" {

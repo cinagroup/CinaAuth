@@ -2,7 +2,9 @@ export {
 	type AuthEndpointContext,
 	getCurrentAuthContext,
 	getCurrentAuthContextAsyncLocalStorage,
+	getCurrentAuthEndpointContext,
 	runWithEndpointContext,
+	tryGetCurrentAuthEndpointContext,
 } from "./endpoint-context";
 export { getCinaAuthVersion } from "./global";
 export {

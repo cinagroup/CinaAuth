@@ -1,0 +1,16 @@
+{
+  "name": "@cinaauth-test/drizzle-v2-relations-adapter",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "e2e:integration": "vitest run"
+  },
+  "devDependencies": {
+    "@cinaauth/core": "workspace:*",
+    "@cinaauth/drizzle-adapter": "workspace:*",
+    "@cinaauth/test-utils": "workspace:*",
+    "cinaauth": "workspace:*",
+    "drizzle-orm": "1.0.0-rc.3",
+    "drizzle-kit": "1.0.0-rc.3"
+  }
+}

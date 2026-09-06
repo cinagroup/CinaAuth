@@ -1,6 +1,6 @@
 {
   "name": "@cinaauth/memory-adapter",
-  "version": "1.6.26",
+  "version": "1.7.3",
   "description": "Memory adapter for CinaAuth",
   "type": "module",
   "license": "MIT",

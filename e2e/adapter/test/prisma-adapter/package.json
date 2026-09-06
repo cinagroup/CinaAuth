@@ -9,13 +9,14 @@
   "devDependencies": {
     "@cinaauth/core": "workspace:*",
     "@cinaauth/prisma-adapter": "workspace:*",
+    "@cinaauth/scim": "workspace:*",
     "@cinaauth/test-utils": "workspace:*",
-    "@prisma/adapter-better-sqlite3": "^7.4.1",
-    "@prisma/adapter-mariadb": "^7.4.1",
-    "@prisma/adapter-pg": "^7.4.1",
-    "@prisma/client": "^7.4.1",
+    "@prisma/adapter-better-sqlite3": "^7.8.0",
+    "@prisma/adapter-mariadb": "^7.8.0",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "cinaauth": "workspace:*",
-    "better-sqlite3": "^12.6.2",
-    "prisma": "^7.4.1"
+    "better-sqlite3": "^12.11.1",
+    "prisma": "^7.8.0"
   }
 }

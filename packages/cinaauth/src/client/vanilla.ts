@@ -56,6 +56,7 @@ export type AuthClient<Option extends CinaAuthClientOptions> =
 	UnionToIntersection<InferResolvedHooks<Option>> &
 		InferClientAPI<Option> &
 		InferActions<Option> & {
+			hydrateSession(session: NonNullable<ClientSession<Option>> | null): void;
 			useSession: Atom<{
 				data: ClientSession<Option>;
 				error: BetterFetchError | null;
@@ -82,6 +83,7 @@ export function createAuthClient<Option extends CinaAuthClientOptions>(
 		pluginPathMethods,
 		pluginsActions,
 		pluginsAtoms,
+		hydrateSession,
 		$fetch,
 		atomListeners,
 		$store,
@@ -93,6 +95,7 @@ export function createAuthClient<Option extends CinaAuthClientOptions>(
 	const routes = {
 		...pluginsActions,
 		...resolvedHooks,
+		hydrateSession,
 		$fetch,
 		$store,
 	};
