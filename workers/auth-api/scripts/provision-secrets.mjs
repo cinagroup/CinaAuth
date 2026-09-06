@@ -153,7 +153,9 @@ export const runProvisionSecrets = (options = {}) => {
 	);
 	const result = spawnSyncImpl(
 		process.execPath,
-		[wranglerCli, "secret", "bulk", ...target.wranglerArgs],
+		// Stage a version so rollback/gradual deployments do not trigger error
+		// 10215 or activate application code during secret provisioning.
+		[wranglerCli, "versions", "secret", "bulk", ...target.wranglerArgs],
 		{
 			input: `${JSON.stringify(values)}\n`,
 			stdio: ["pipe", "inherit", "inherit"],
@@ -164,12 +166,12 @@ export const runProvisionSecrets = (options = {}) => {
 		throw new Error("Failed to start Wrangler");
 	}
 	if (result.status !== 0) {
-		const error = new Error("Wrangler secret bulk failed");
+		const error = new Error("Wrangler versions secret bulk failed");
 		error.exitCode = result.status ?? 1;
 		throw error;
 	}
 	log(
-		`Provisioned ${names.length} mutable or configured optional Auth Worker secrets in one bulk operation. Preserved stateful secrets were not selected.`,
+		`Staged ${names.length} mutable or configured optional Auth Worker secrets in one versioned bulk operation. Preserved stateful secrets were not selected.`,
 	);
 };
 
