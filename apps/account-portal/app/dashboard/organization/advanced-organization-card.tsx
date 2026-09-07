@@ -354,7 +354,7 @@ const TeamEditorDialog = ({
 			const error = getTeamNameError(name);
 			if (error) throw new Error(localizeAdvancedError(error, messages));
 			if (team) {
-				await updateOrganizationTeam({ teamId: team.id, name });
+				await updateOrganizationTeam({ organizationId, teamId: team.id, name });
 				return;
 			}
 			await createOrganizationTeam({ organizationId, name });
@@ -655,7 +655,11 @@ export const AdvancedMemberRoleEditor = ({
 			return;
 		}
 		updateMutation.mutate(
-			{ memberId: member.id, role: selectedRoles },
+			{
+				memberId: member.id,
+				role: selectedRoles,
+				organizationId: member.organizationId,
+			},
 			{
 				onSuccess: () => {
 					setOpen(false);

@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { requireAdmin, requireAdminControlPermission } from "@/lib/auth-guard";
 import { cinaauthFetch } from "@/lib/cinaauth/client";
+import { listOrganizationTeamMembers } from "@/lib/cinaauth/organization";
 import { adminUpstreamResponseStatus } from "@/lib/cinaauth/upstream-response";
 import { requireRecentAdminAuthentication } from "@/lib/recent-auth-guard";
 
@@ -17,14 +18,13 @@ export async function GET(
 	} catch (error) {
 		return error as Response;
 	}
-	const { teamId } = await params;
+	const { id, teamId } = await params;
 	const cookie = request.headers.get("cookie") ?? "";
-	const res = await cinaauthFetch(`/organization/list-team-members`, {
-		method: "POST",
-		body: { teamId },
-		cookie,
-	});
-	return NextResponse.json(res, { status: adminUpstreamResponseStatus(res) });
+	const res = await listOrganizationTeamMembers(id, teamId, cookie);
+	return NextResponse.json(
+		res.ok ? { ok: true, data: { members: res.data } } : res,
+		{ status: adminUpstreamResponseStatus(res, { allowNotFound: true }) },
+	);
 }
 
 /** POST /api/admin/organizations/[id]/teams/[teamId]/members — add a member. */
@@ -39,7 +39,7 @@ export async function POST(
 	} catch (error) {
 		return error as Response;
 	}
-	const { teamId } = await params;
+	const { id, teamId } = await params;
 	const body = (await request.json().catch(() => ({}))) as Record<
 		string,
 		unknown
@@ -50,10 +50,10 @@ export async function POST(
 		return error as Response;
 	}
 	const cookie = request.headers.get("cookie") ?? "";
-	// Pin teamId after the spread so the path param always wins.
+	// Pin both identifiers so the path always wins over the request body.
 	const res = await cinaauthFetch("/organization/add-team-member", {
 		method: "POST",
-		body: { ...body, teamId },
+		body: { ...body, teamId, organizationId: id },
 		cookie,
 	});
 	return NextResponse.json(res, { status: adminUpstreamResponseStatus(res) });

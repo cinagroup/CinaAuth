@@ -28,10 +28,10 @@ export async function POST(
 		return error as Response;
 	}
 	const cookie = request.headers.get("cookie") ?? "";
-	// Spread body first, then pin organizationId so the path param always wins.
+	// Organization updates use a nested data object; the path selects the target.
 	const res = await cinaauthFetch("/organization/update", {
 		method: "POST",
-		body: { ...body, organizationId: id },
+		body: { data: body, organizationId: id },
 		cookie,
 	});
 	return NextResponse.json(res, { status: adminUpstreamResponseStatus(res) });

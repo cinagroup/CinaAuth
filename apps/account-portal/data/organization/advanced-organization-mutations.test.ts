@@ -32,6 +32,7 @@ describe("advanced organization mutations", () => {
 			name: "Platform",
 		});
 		await updateOrganizationTeam({
+			organizationId: "organization-1",
 			teamId: "team-1",
 			name: "Core Platform",
 		});
@@ -53,7 +54,10 @@ describe("advanced organization mutations", () => {
 			"/organization/update-team",
 			{
 				method: "POST",
-				body: { teamId: "team-1", data: { name: "Core Platform" } },
+				body: {
+					teamId: "team-1",
+					data: { name: "Core Platform", organizationId: "organization-1" },
+				},
 			},
 		);
 		expect(mocks.$fetch).toHaveBeenNthCalledWith(

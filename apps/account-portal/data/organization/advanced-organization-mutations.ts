@@ -60,12 +60,16 @@ export const createOrganizationTeam = (params: {
 	);
 
 export const updateOrganizationTeam = (params: {
+	organizationId: string;
 	teamId: string;
 	name: string;
 }) =>
 	mutate(
 		"/organization/update-team",
-		{ teamId: params.teamId, data: { name: params.name.trim() } },
+		{
+			teamId: params.teamId,
+			data: { name: params.name.trim(), organizationId: params.organizationId },
+		},
 		"Unable to update the team",
 	);
 

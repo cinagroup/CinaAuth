@@ -17,7 +17,7 @@ export async function POST(
 	} catch (error) {
 		return error as Response;
 	}
-	const { teamId } = await params;
+	const { id, teamId } = await params;
 	const body = (await request.json().catch(() => ({}))) as Record<
 		string,
 		unknown
@@ -28,10 +28,10 @@ export async function POST(
 		return error as Response;
 	}
 	const cookie = request.headers.get("cookie") ?? "";
-	// Pin teamId after the spread so the path param always wins.
+	// Both the team and organization are selected by the path, not the session.
 	const res = await cinaauthFetch("/organization/update-team", {
 		method: "POST",
-		body: { ...body, teamId },
+		body: { teamId, data: { ...body, organizationId: id } },
 		cookie,
 	});
 	return NextResponse.json(res, { status: adminUpstreamResponseStatus(res) });
@@ -49,7 +49,7 @@ export async function DELETE(
 	} catch (error) {
 		return error as Response;
 	}
-	const { teamId } = await params;
+	const { id, teamId } = await params;
 	await request.json().catch(() => ({}));
 	try {
 		await requireRecentAdminAuthentication(request, session);
@@ -59,7 +59,7 @@ export async function DELETE(
 	const cookie = request.headers.get("cookie") ?? "";
 	const res = await cinaauthFetch("/organization/remove-team", {
 		method: "POST",
-		body: { teamId },
+		body: { teamId, organizationId: id },
 		cookie,
 	});
 	return NextResponse.json(res, { status: adminUpstreamResponseStatus(res) });
