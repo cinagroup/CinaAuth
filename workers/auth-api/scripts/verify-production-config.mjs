@@ -1916,7 +1916,7 @@ checkIncludesAll(
 		"InviteMemberForm",
 		"CreateOrganizationForm",
 		"getOrganizationInvitationUrl",
-		"authClient.signOut",
+		"startAccountStepUp(authClient)",
 		"messages.leaveOrganization",
 		"OrganizationAuditCard",
 		"EnterpriseConnectionsCard",
