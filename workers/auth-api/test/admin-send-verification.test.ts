@@ -1,3 +1,4 @@
+import { getTestInstance } from "cinaauth/test";
 import { describe, expect, it, vi } from "vitest";
 import type { AdminVerificationDependencies } from "../src/admin-send-verification";
 import {
@@ -6,8 +7,8 @@ import {
 	getAdminVerificationServerApi,
 	handleAdminSendVerification as handleAdminSendVerificationRequest,
 } from "../src/admin-send-verification";
-import { createAuth } from "../src/auth";
 import { TURNSTILE_PROTECTED_ENDPOINTS } from "../src/captcha-config";
+import { createAuthPlugins } from "../src/plugins";
 import { makeOriginEnv } from "./origin-test-env";
 
 const handleAdminSendVerification = (
@@ -128,15 +129,19 @@ describe("Admin verification delivery boundary", () => {
 		).toBeNull();
 	});
 
-	it("exposes the enabled server APIs from the configured Worker auth instance", async () => {
-		const auth = await createAuth(
-			makeOriginEnv({
-				HYPERDRIVE: {
-					connectionString: "postgres://localhost/cinaauth-test",
-				} as Hyperdrive,
-			}),
+	/** @see https://www.better-auth.com/docs/guides/1-7-upgrade-guide */
+	it("exposes the enabled server APIs from the configured Worker plugins after initialization", async () => {
+		const env = makeOriginEnv();
+		const { auth } = await getTestInstance(
+			{
+				baseURL: env.CINAAUTH_URL,
+				secret: env.CINAAUTH_SECRET,
+				plugins: createAuthPlugins(env, { advancedOrganization: true }),
+			},
+			{ disableTestUser: true },
 		);
 
+		await auth.$context;
 		expect(getAdminVerificationServerApi(auth.api)).not.toBeNull();
 	});
 
