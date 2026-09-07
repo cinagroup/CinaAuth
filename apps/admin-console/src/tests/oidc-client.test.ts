@@ -3,6 +3,7 @@
 import {
 	ADMIN_OIDC_CLIENT_ID,
 	ADMIN_OIDC_REDIRECT_URI,
+	ADMIN_OIDC_RESOURCE,
 	ADMIN_OIDC_SCOPES,
 	ADMIN_OIDC_STEP_UP_MAX_AGE_SECONDS,
 } from "@cinaauth/auth-web-contract";
@@ -15,6 +16,7 @@ import {
 } from "@/lib/cinaauth/oidc-client";
 import type { AdminOidcTransaction } from "@/lib/cinaauth/oidc-transaction";
 
+/** @see https://www.rfc-editor.org/rfc/rfc8707.html#section-2 */
 describe("Admin OIDC authorization request", () => {
 	it("uses exact redirect URI, S256 PKCE, state, nonce, and standard scopes", async () => {
 		const transaction: AdminOidcTransaction = {
@@ -37,6 +39,7 @@ describe("Admin OIDC authorization request", () => {
 		expect(url.searchParams.get("client_id")).toBe(ADMIN_OIDC_CLIENT_ID);
 		expect(url.searchParams.get("redirect_uri")).toBe(ADMIN_OIDC_REDIRECT_URI);
 		expect(url.searchParams.get("scope")).toBe(ADMIN_OIDC_SCOPES.join(" "));
+		expect(url.searchParams.get("resource")).toBe(ADMIN_OIDC_RESOURCE);
 		expect(url.searchParams.get("state")).toBe(transaction.state);
 		expect(url.searchParams.get("nonce")).toBe(transaction.nonce);
 		expect(url.searchParams.get("code_challenge_method")).toBe("S256");

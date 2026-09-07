@@ -102,6 +102,39 @@ describe("DataTable", () => {
 		fireEvent.keyDown(container.querySelector("tbody tr")!, { key: "Enter" });
 		expect(onRowClick).toHaveBeenCalledWith(data[0]);
 	});
+
+	/** @see https://developer.mozilla.org/en-US/docs/Web/API/Event/currentTarget */
+	it("does not open the row when Enter bubbles from a nested control", () => {
+		const onRowClick = vi.fn();
+		const columns: ColumnDef<{ a: string }>[] = [
+			{ accessorKey: "a", header: "A" },
+			{ id: "action", cell: () => <button type="button">Action</button> },
+		];
+		render(
+			<Harness data={[{ a: "x" }]} columns={columns} onRowClick={onRowClick} />,
+		);
+		fireEvent.keyDown(screen.getByRole("button", { name: "Action" }), {
+			key: "Enter",
+		});
+		expect(onRowClick).not.toHaveBeenCalled();
+	});
+
+	/** @see https://tanstack.com/query/latest/docs/framework/react/reference/useQuery */
+	it("keeps cached rows visible with an alert and retry after a refresh failure", () => {
+		const retry = vi.fn();
+		render(
+			<Harness
+				data={[{ a: "Cached user" }]}
+				columns={[{ accessorKey: "a", header: "A" }]}
+				isError
+				onRetry={retry}
+			/>,
+		);
+		expect(screen.getByText("Cached user")).toBeInTheDocument();
+		expect(screen.getByRole("alert")).toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "重试" }));
+		expect(retry).toHaveBeenCalledTimes(1);
+	});
 });
 
 describe("Badge", () => {

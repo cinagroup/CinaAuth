@@ -82,7 +82,6 @@ export const ensureAdminOidcClient = async (
 		"client_secret_basic",
 		JSON.stringify(["authorization_code"]),
 		JSON.stringify(["code"]),
-		false,
 		"web",
 		true,
 		"cinaseek-admin-console",
@@ -95,11 +94,11 @@ export const ensureAdminOidcClient = async (
 			"enableEndSession", "subjectType", "scopes", "userId", "referenceId",
 			"createdAt", "updatedAt", "name", "uri", "icon", "redirectUris",
 			"postLogoutRedirectUris", "tokenEndpointAuthMethod", "grantTypes",
-			"responseTypes", "public", "type", "requirePKCE", "softwareId",
+			"responseTypes", "applicationType", "requirePKCE", "softwareId",
 			"softwareVersion"
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-			$14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25
+			$14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24
 		)
 		ON CONFLICT ("clientId") DO UPDATE SET
 			"clientSecret" = EXCLUDED."clientSecret",
@@ -119,11 +118,30 @@ export const ensureAdminOidcClient = async (
 			"tokenEndpointAuthMethod" = EXCLUDED."tokenEndpointAuthMethod",
 			"grantTypes" = EXCLUDED."grantTypes",
 			"responseTypes" = EXCLUDED."responseTypes",
-			"public" = EXCLUDED."public",
-			"type" = EXCLUDED."type",
+			"applicationType" = EXCLUDED."applicationType",
 			"requirePKCE" = EXCLUDED."requirePKCE",
 			"softwareId" = EXCLUDED."softwareId",
 			"softwareVersion" = EXCLUDED."softwareVersion"`,
 		values,
+	);
+
+	// First-party resource bindings are required by the 1.7 provider. Preserve
+	// operator-managed resource policy, including an intentional disablement.
+	await database.query(
+		`INSERT INTO "oauthResource" ("id", "identifier", "name", "createdAt", "updatedAt")
+		 VALUES ($1, $2, $3, $4, $4)
+		 ON CONFLICT ("identifier") DO NOTHING`,
+		[`first-party:${adminOrigin}`, adminOrigin, "CinaSeek Admin Console", now],
+	);
+	await database.query(
+		`INSERT INTO "oauthClientResource" ("id", "clientId", "resourceId", "createdAt")
+		 VALUES ($1, $2, $3, $4)
+		 ON CONFLICT DO NOTHING`,
+		[
+			`${ADMIN_OIDC_CLIENT_ID}:${adminOrigin}`,
+			ADMIN_OIDC_CLIENT_ID,
+			adminOrigin,
+			now,
+		],
 	);
 };

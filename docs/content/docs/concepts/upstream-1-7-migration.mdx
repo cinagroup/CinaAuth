@@ -33,6 +33,10 @@ The production Auth Worker and Account Portal use these compatibility entries. T
 
 ## OAuth resource verification
 
+Register protected resource identifiers with the OAuth Provider's `resources` option. The former `validAudiences` option does not register resources in 1.7. With per-client resource enforcement enabled, each requesting client also needs an `oauthClientResource` link to the resource identifier. Send the same `resource` in the authorization request and token exchange; a token request cannot expand the resources authorized by the code.
+
+The Admin integration reconciles its confidential client using `applicationType` and `tokenEndpointAuthMethod`, registers its configured Admin origin as a resource, and inserts the client-resource link idempotently. Existing resource policy, including disablement, is preserved. Ensure the current OAuth schema is migrated before running this reconciliation. Verify a complete authorization-code exchange and UserInfo request in addition to discovery: discovery can be healthy while a missing resource or link prevents sign-in.
+
 Use `verifyBearerToken` for Bearer tokens or `verifyAccessTokenRequest` for request verification, including DPoP. Required scopes are supplied as `requiredScopes`. CinaAuth also supports a caller-owned `jwksFetch` loader with a stable `jwksCacheKey`, so resource servers can retrieve keys through a private transport such as a Cloudflare Service Binding.
 
 OAuth query state is carried in the server-only OAuth context. Registration proof and post-login continuation remain bound to the signed authorization request.

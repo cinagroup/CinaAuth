@@ -15,7 +15,6 @@ import {
 	Smartphone,
 	Trash2,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-page-header";
@@ -63,6 +62,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import type { OAuthClientRecord } from "@/lib/auth";
 import { authClient } from "@/lib/auth-client";
+import { startAccountStepUp } from "@/lib/client-api";
 import type { DashboardMessages } from "@/lib/dashboard-i18n";
 import { formatDashboardMessage } from "@/lib/dashboard-i18n";
 import type {
@@ -80,6 +80,7 @@ import {
 	validateDeveloperClientName,
 } from "@/lib/developer-console";
 import { isSessionRecent } from "@/lib/security-center";
+import { useServerSnapshotState } from "@/lib/use-server-snapshot-state";
 
 type DeveloperConsoleProps = {
 	currentSessionCreatedAt: string;
@@ -310,9 +311,8 @@ export function DeveloperConsole({
 	dataUnavailable,
 }: DeveloperConsoleProps) {
 	const { locale, messages } = useDashboardI18n();
-	const router = useRouter();
-	const [clients, setClients] = useState(initialClients);
-	const [consents, setConsents] = useState(initialConsents);
+	const [clients, setClients] = useServerSnapshotState(initialClients);
+	const [consents, setConsents] = useServerSnapshotState(initialConsents);
 	const [createOpen, setCreateOpen] = useState(false);
 	const [draft, setDraft] = useState<ClientDraft>(EMPTY_DRAFT);
 	const [editingClient, setEditingClient] =
@@ -342,10 +342,7 @@ export function DeveloperConsole({
 	const reauthenticate = () =>
 		runAction(
 			"reauthenticate",
-			async () => {
-				await authClient.signOut();
-				router.push("/sign-in?callbackURL=/dashboard/developer");
-			},
+			() => startAccountStepUp(authClient),
 			messages.unableFreshSignIn,
 		);
 
@@ -434,11 +431,32 @@ export function DeveloperConsole({
 						update: {
 							client_name: validated.name,
 							redirect_uris: validated.redirectUris,
-							scope: draft.scopes.join(" "),
-							grant_types: draft.scopes.includes("offline_access")
-								? ["authorization_code", "refresh_token"]
-								: ["authorization_code"],
-							response_types: ["code"],
+							scope: [
+								...editingClient.scopes.filter(
+									(scope) =>
+										!DEVELOPER_OAUTH_SCOPES.some(
+											(managed) => managed === scope,
+										),
+								),
+								...draft.scopes,
+							].join(" "),
+							// Only change refresh grants when their checkbox changes;
+							// preserve grant types and response types outside this editor.
+							...(draft.scopes.includes("offline_access") !==
+							editingClient.scopes.includes("offline_access")
+								? {
+										grant_types: draft.scopes.includes("offline_access")
+											? [
+													...new Set([
+														...editingClient.grantTypes,
+														"refresh_token",
+													]),
+												]
+											: editingClient.grantTypes.filter(
+													(grant) => grant !== "refresh_token",
+												),
+									}
+								: {}),
 						},
 					},
 					messages.httpError,
