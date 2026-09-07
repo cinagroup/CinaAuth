@@ -21,11 +21,31 @@ export async function GET(
 	}
 	const { id } = await params;
 	const cookie = request.headers.get("cookie") ?? "";
-	const res = await cinaauthFetch(`/organization/list-members`, {
-		method: "POST",
-		body: { organizationId: id },
-		cookie,
-	});
+	const query = request.nextUrl.searchParams;
+	const limit = Number(query.get("limit") ?? 20);
+	const offset = Number(query.get("offset") ?? 0);
+	if (
+		!Number.isSafeInteger(limit) ||
+		limit < 1 ||
+		limit > 100 ||
+		!Number.isSafeInteger(offset) ||
+		offset < 0
+	) {
+		return NextResponse.json(
+			{
+				ok: false,
+				error: { code: "INVALID_PAGINATION", message: "Invalid member page" },
+			},
+			{ status: 400 },
+		);
+	}
+	const res = await cinaauthFetch(
+		`/organization/list-members?${new URLSearchParams({ organizationId: id, limit: String(limit), offset: String(offset), sortBy: "id", sortDirection: "asc" })}`,
+		{
+			method: "GET",
+			cookie,
+		},
+	);
 	if (!res.ok) {
 		return NextResponse.json(res, { status: adminUpstreamResponseStatus(res) });
 	}

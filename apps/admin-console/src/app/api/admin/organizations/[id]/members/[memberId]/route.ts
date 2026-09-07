@@ -32,7 +32,7 @@ export async function DELETE(
 	const cookie = request.headers.get("cookie") ?? "";
 	const res = await cinaauthFetch(`/organization/remove-member`, {
 		method: "POST",
-		body: { organizationId: id, memberId },
+		body: { organizationId: id, memberIdOrEmail: memberId },
 		cookie,
 	});
 	return NextResponse.json(res, { status: adminUpstreamResponseStatus(res) });

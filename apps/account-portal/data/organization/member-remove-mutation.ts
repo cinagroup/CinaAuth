@@ -4,11 +4,13 @@ import { authClient } from "@/lib/auth-client";
 import { organizationKeys } from "./keys";
 
 export interface MemberRemoveParams {
+	organizationId: string;
 	memberIdOrEmail: string;
 }
 
 export async function removeMember(params: MemberRemoveParams) {
 	const { data, error } = await authClient.organization.removeMember({
+		organizationId: params.organizationId,
 		memberIdOrEmail: params.memberIdOrEmail,
 	});
 	if (error) throw new Error(error.message);

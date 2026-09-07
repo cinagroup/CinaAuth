@@ -21,11 +21,13 @@ export async function GET(
 	}
 	const { id } = await params;
 	const cookie = request.headers.get("cookie") ?? "";
-	const res = await cinaauthFetch(`/organization/get-full-organization`, {
-		method: "POST",
-		body: { organizationId: id },
-		cookie,
-	});
+	const res = await cinaauthFetch(
+		`/organization/get-full-organization?${new URLSearchParams({ organizationId: id })}`,
+		{
+			method: "GET",
+			cookie,
+		},
+	);
 	if (!res.ok) {
 		return NextResponse.json(res, {
 			status: adminUpstreamResponseStatus(res, { allowNotFound: true }),

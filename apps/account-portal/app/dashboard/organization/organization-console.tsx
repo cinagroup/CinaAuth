@@ -250,7 +250,7 @@ export function OrganizationConsole({
 
 	const removeMember = (member: OrganizationMember) => {
 		removeMemberMutation.mutate(
-			{ memberIdOrEmail: member.id },
+			{ memberIdOrEmail: member.id, organizationId: member.organizationId },
 			{ onSuccess: () => router.refresh() },
 		);
 	};

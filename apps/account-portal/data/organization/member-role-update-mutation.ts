@@ -4,12 +4,14 @@ import { authClient } from "@/lib/auth-client";
 import { organizationKeys } from "./keys";
 
 export interface MemberRoleUpdateParams {
+	organizationId: string;
 	memberId: string;
 	role: string | string[];
 }
 
 export async function updateMemberRole(params: MemberRoleUpdateParams) {
 	const { data, error } = await authClient.organization.updateMemberRole({
+		organizationId: params.organizationId,
 		memberId: params.memberId,
 		role: params.role,
 	});

@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { requireAdmin, requireAdminControlPermission } from "@/lib/auth-guard";
 import { cinaauthFetch } from "@/lib/cinaauth/client";
+import { listOrganizationTeams } from "@/lib/cinaauth/organization";
 import { adminUpstreamResponseStatus } from "@/lib/cinaauth/upstream-response";
 import { requireRecentAdminAuthentication } from "@/lib/recent-auth-guard";
 
@@ -19,12 +20,11 @@ export async function GET(
 	}
 	const { id } = await params;
 	const cookie = request.headers.get("cookie") ?? "";
-	const res = await cinaauthFetch(`/organization/list-teams`, {
-		method: "POST",
-		body: { organizationId: id },
-		cookie,
-	});
-	return NextResponse.json(res, { status: adminUpstreamResponseStatus(res) });
+	const res = await listOrganizationTeams(id, cookie);
+	return NextResponse.json(
+		res.ok ? { ok: true, data: { teams: res.data } } : res,
+		{ status: adminUpstreamResponseStatus(res) },
+	);
 }
 
 /** POST /api/admin/organizations/[id]/teams — create a team. */

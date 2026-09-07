@@ -194,6 +194,7 @@ export default async function OrganizationConsolePage() {
 
 	return (
 		<OrganizationConsole
+			key={JSON.stringify([session.user.id, organization?.id ?? null])}
 			currentUser={{
 				id: session.user.id,
 				name: session.user.name,
