@@ -508,7 +508,7 @@ export const createAuthPlugins = (
 					"acr",
 				],
 			},
-			validAudiences: [
+			resources: [
 				baseURL,
 				origins.adminOrigin,
 				...(origins.cinatokenProfile

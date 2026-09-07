@@ -73,6 +73,7 @@ import type {
 import { hasOrganizationPermission } from "@/lib/advanced-organization-console";
 import type { SCIMProviderConnection, SSOProviderSummary } from "@/lib/auth";
 import { authClient } from "@/lib/auth-client";
+import { startAccountStepUp } from "@/lib/client-api";
 import { formatDashboardMessage } from "@/lib/dashboard-i18n";
 import type {
 	OrganizationDetail,
@@ -240,8 +241,7 @@ export function OrganizationConsole({
 	const reauthenticate = async () => {
 		setReauthenticating(true);
 		try {
-			await authClient.signOut();
-			router.push("/sign-in?callbackURL=/dashboard/organization");
+			await startAccountStepUp(authClient);
 		} catch {
 			setReauthenticating(false);
 			toast.error(messages.unableFreshSignIn);

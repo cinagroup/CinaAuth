@@ -75,6 +75,7 @@ export const createAdminAuthorizationUrl = async (
 	url.searchParams.set("redirect_uri", ADMIN_OIDC_REDIRECT_URI);
 	url.searchParams.set("response_type", "code");
 	url.searchParams.set("scope", ADMIN_OIDC_SCOPES.join(" "));
+	url.searchParams.set("resource", ADMIN_OIDC_RESOURCE);
 	url.searchParams.set("state", transaction.state);
 	url.searchParams.set("nonce", transaction.nonce);
 	url.searchParams.set("code_challenge", codeChallenge);

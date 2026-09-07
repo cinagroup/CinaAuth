@@ -63,7 +63,7 @@ import { ReownWalletEntry } from "@/components/wallet/reown-wallet-entry";
 import { formatOAuthProviderName } from "@/lib/auth-capabilities";
 import { authClient } from "@/lib/auth-client";
 import { cinaAuthSiweProtocolClient } from "@/lib/cinaauth-siwe-client";
-import { deleteAccountPasskey } from "@/lib/client-api";
+import { deleteAccountPasskey, startAccountStepUp } from "@/lib/client-api";
 import { formatDashboardMessage } from "@/lib/dashboard-i18n";
 import {
 	getInjectedEthereumProvider,
@@ -105,6 +105,7 @@ import {
 } from "@/lib/security-center";
 import { getSecurityProviderLinkURL } from "@/lib/security-provider-actions";
 import { completeWalletProof } from "@/lib/siwe-wallet-protocol";
+import { useServerSnapshotState } from "@/lib/use-server-snapshot-state";
 
 type SecurityCenterProps = {
 	user: {
@@ -178,11 +179,11 @@ export function SecurityCenter({
 }: SecurityCenterProps) {
 	const { locale, messages } = useDashboardI18n();
 	const router = useRouter();
-	const [sessions, setSessions] = useState(initialSessions);
-	const [accounts, setAccounts] = useState(initialAccounts);
-	const [passkeys, setPasskeys] = useState(initialPasskeys);
-	const [apiKeys, setApiKeys] = useState(initialApiKeys);
-	const [wallets, setWallets] = useState(initialWallets);
+	const [sessions, setSessions] = useServerSnapshotState(initialSessions);
+	const [accounts, setAccounts] = useServerSnapshotState(initialAccounts);
+	const [passkeys, setPasskeys] = useServerSnapshotState(initialPasskeys);
+	const [apiKeys, setApiKeys] = useServerSnapshotState(initialApiKeys);
+	const [wallets, setWallets] = useServerSnapshotState(initialWallets);
 	const [busyAction, setBusyAction] = useState<string | null>(null);
 	const [passkeyName, setPasskeyName] = useState("");
 	const [apiKeyName, setApiKeyName] = useState("");
@@ -266,10 +267,7 @@ export function SecurityCenter({
 	const reauthenticate = () =>
 		runAction(
 			"reauthenticate",
-			async () => {
-				await authClient.signOut();
-				router.push("/sign-in?callbackURL=/dashboard/security");
-			},
+			() => startAccountStepUp(authClient),
 			messages.unableFreshSignIn,
 		);
 

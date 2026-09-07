@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { RoleGuard } from "@/components/role-guard";
 import { Button } from "@/components/ui/button";
 import { fetchAdminResponse } from "@/lib/client-api";
 import { useI18n } from "@/lib/i18n/i18n-context";
@@ -72,31 +73,35 @@ export function BatchActionBar({
 				{t("batch.selected", { count: selectedIds.length })}
 			</span>
 			<div className="hidden h-4 w-px bg-hairline sm:block" />
-			<ConfirmDialog
-				trigger={
-					<Button variant="secondary" size="sm" disabled={loading}>
-						{t("userDetail.actions.ban")}
-					</Button>
-				}
-				title={t("batch.ban.title")}
-				description={t("batch.ban.confirm", { count: selectedIds.length })}
-				onConfirm={() => runBatch("ban")}
-			/>
-			<ConfirmDialog
-				trigger={
-					<Button variant="danger" size="sm" disabled={loading}>
-						{t("common.delete")}
-					</Button>
-				}
-				title={t("batch.delete.title")}
-				description={t("batch.delete.confirm", { count: selectedIds.length })}
-				danger
-				confirmationText={`DELETE ${selectedIds.length}`}
-				confirmationLabel={t("common.typeToConfirm", {
-					value: `DELETE ${selectedIds.length}`,
-				})}
-				onConfirm={() => runBatch("delete")}
-			/>
+			<RoleGuard allow={["super_admin", "security_admin"]}>
+				<ConfirmDialog
+					trigger={
+						<Button variant="secondary" size="sm" disabled={loading}>
+							{t("userDetail.actions.ban")}
+						</Button>
+					}
+					title={t("batch.ban.title")}
+					description={t("batch.ban.confirm", { count: selectedIds.length })}
+					onConfirm={() => runBatch("ban")}
+				/>
+			</RoleGuard>
+			<RoleGuard allow={["super_admin"]}>
+				<ConfirmDialog
+					trigger={
+						<Button variant="danger" size="sm" disabled={loading}>
+							{t("common.delete")}
+						</Button>
+					}
+					title={t("batch.delete.title")}
+					description={t("batch.delete.confirm", { count: selectedIds.length })}
+					danger
+					confirmationText={`DELETE ${selectedIds.length}`}
+					confirmationLabel={t("common.typeToConfirm", {
+						value: `DELETE ${selectedIds.length}`,
+					})}
+					onConfirm={() => runBatch("delete")}
+				/>
+			</RoleGuard>
 			<Button variant="ghost" size="sm" onClick={onClear}>
 				{t("common.cancel")}
 			</Button>

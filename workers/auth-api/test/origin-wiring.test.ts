@@ -32,7 +32,7 @@ describe("environment-specific origin wiring", () => {
 		expect(oauthProvider?.options).toMatchObject({
 			loginPage: "https://accounts-siwe-staging.cinaseek.ai/sign-in",
 			consentPage: "https://accounts-siwe-staging.cinaseek.ai/oauth/consent",
-			validAudiences: [
+			resources: [
 				"https://auth-siwe-staging.cinaseek.ai",
 				"https://admin-siwe-staging.cinaseek.ai",
 				"https://accounts-siwe-staging.cinaseek.ai/api/mcp",

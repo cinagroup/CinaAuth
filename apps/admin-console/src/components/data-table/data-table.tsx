@@ -87,10 +87,13 @@ export function DataTable<T>({
 								))}
 							</tr>
 						))}
-					{isError && rows.length === 0 && (
+					{isError && (
 						<tr>
 							<td colSpan={columnCount} className="px-6 py-12 text-center">
-								<div className="flex flex-col items-center gap-3 text-[14px] leading-5 text-body">
+								<div
+									role="alert"
+									className="flex flex-col items-center gap-3 text-[14px] leading-5 text-body"
+								>
 									<AlertCircle size={20} className="text-error" aria-hidden />
 									<span>{t("error.generic.message")}</span>
 									{onRetry && (
@@ -129,7 +132,12 @@ export function DataTable<T>({
 							onKeyDown={
 								onRowClick
 									? (event) => {
-											if (event.key === "Enter") onRowClick(row.original);
+											if (
+												event.key === "Enter" &&
+												event.target === event.currentTarget
+											) {
+												onRowClick(row.original);
+											}
 										}
 									: undefined
 							}
