@@ -43,6 +43,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build Admin test dependencies
+        run: pnpm --dir ../.. exec turbo build --filter=cinaauth...
+
       - name: Validate production binding contract
         working-directory: workers/auth-api
         run: pnpm run check:production

@@ -272,6 +272,26 @@ test("Account Portal deployment jobs build workspace packages before typecheck",
 	}
 });
 
+test("Admin deployment builds the real auth handler before typechecking and testing proxies", () => {
+	const install = admin.indexOf("- name: Install dependencies");
+	const build = admin.indexOf("- name: Build Admin test dependencies");
+	const typecheck = admin.indexOf("- name: Typecheck admin console");
+	const testAdmin = admin.indexOf("- name: Test admin console");
+	assert.ok(build > install, "Admin must build dependencies after installing");
+	assert.ok(
+		typecheck > build,
+		"Admin typecheck requires built CinaAuth declarations",
+	);
+	assert.ok(
+		testAdmin > typecheck,
+		"Admin proxy tests must run after dependency build and typecheck",
+	);
+	assert.match(
+		admin.slice(build, typecheck),
+		/run: pnpm --dir \.\.\/\.\. exec turbo build --filter=cinaauth\.\.\./,
+	);
+});
+
 test("Account Portal smoke verifies the legacy custom domain across Cloudflare boundaries", () => {
 	const deploy = jobBlock(account, "deploy");
 	const smokeStart = deploy.indexOf("- name: Smoke test account portal");
