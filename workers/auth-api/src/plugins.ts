@@ -482,6 +482,12 @@ export const createAuthPlugins = (
 				shouldRedirect: () => false,
 			},
 			scopes: ["openid", "profile", "email", "offline_access"],
+			// Cloudflare Access reads email from the ID token, not UserInfo.
+			// Keep this production compatibility claim gated by the granted scope.
+			customIdTokenClaims: ({ user, scopes }) =>
+				scopes.includes("email")
+					? { email: user.email, email_verified: user.emailVerified }
+					: {},
 			advertisedMetadata: {
 				claims_supported: [
 					"sub",

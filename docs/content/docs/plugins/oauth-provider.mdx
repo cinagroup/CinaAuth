@@ -1325,6 +1325,21 @@ oauthProvider({
 })
 ```
 
+#### Cloudflare Access email compatibility
+
+[Cloudflare Access Generic OIDC](https://developers.cloudflare.com/cloudflare-one/integrations/identity-providers/generic-oidc/) reads the user's email from the ID token. Configure its scopes as `openid email profile` and its email claim name as `email`. Requesting the scope alone supplies the email through UserInfo; explicitly add the claim to the ID token for this integration:
+
+```ts title="auth.ts"
+oauthProvider({
+  customIdTokenClaims: ({ user, scopes }) =>
+    scopes.includes("email")
+      ? { email: user.email, email_verified: user.emailVerified }
+      : {},
+})
+```
+
+The production CinaAuth Worker includes this configuration. It preserves the user's actual verification status and omits both claims when `email` is not granted, including when a refresh request reduces the scope. Without it, Access can report “User email was not returned” even when the `email` scope is configured correctly.
+
 #### Custom Token Response Fields
 
 Unlike the claim callbacks above (which add data *inside* JWT payloads), `customTokenResponseFields` adds fields to the **token endpoint JSON response** alongside `access_token`, `token_type`, etc. Standard OAuth fields cannot be overridden.
